@@ -1,9 +1,12 @@
 import logging
 
+
 import TOKENS
 import aurora
 from aurora import aurlux
 logging.basicConfig(level=logging.INFO)
+
+
 
 config = {"PREFIX": "!"}
 client = aurora.aurlux.client.Lux(config)
@@ -21,12 +24,12 @@ async def testerino(ctx: aurlux.Contexter):
 
 
 @client.command(name="remindme")
-async def remind_me(ctx: aurlux.Contexter):
-    reminder = aurora.task.actionable.Reminder()
-    pass
+async def remind_me(ctx: aurlux.CommandContext):
+    return aurora.task.action.Reminder()
+
 
 @client.command(name="ping")
-async def ping(ctx: aurlux.Contexter):
+async def ping(ctx: aurlux.command.CommandContext):
     pass
 
 

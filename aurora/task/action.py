@@ -4,12 +4,14 @@ from datetime import datetime, timedelta
 
 import discord
 import functools
-
-from aurora.utils.time import parse_time
+import abc
+import collections
 from aurora.utils.discord import send_to
+from aurora.utils.time import parse_time
+import aurora.event
 
 
-class Action:
+class Action(abc.ABC):
     pass
 
 
@@ -17,23 +19,34 @@ class AutoAction(Action):
     pass
 
 
-class InstantAction(Action):
+class InstantAutoAction(AutoAction):
     pass
+
+
+class ResumableAutoAction(AutoAction):
+    pass
+
+
+class EventedAction(Action):
+    @abc.abstractmethod
+    def hooks(self):
+        pass
 
 
 class ActionRunner:
     def __init__(self):
-        pass
-        self.autos: ty.List[AutoAction] = []
+        self.autos: ty.Dict[aurora.event.Event, ty.List[Action]] = collections.defaultdict(list)
 
-    def handle(self, action: Action):
+    def submit(self, action: Action):
         if isinstance(action, AutoAction):
-            self.autos.append(action)
+            for hook in action.hooks():
+                self.autos[hook].append(action)
 
         pass
 
 
-class TimedAutoAction(AutoAction):
+class TimedAutoAction(AutoAction, abc.ABC):
+
     def __init__(self, dt_end: datetime, action: callable,
                  callback: callable = lambda x: x,
                  action_kwargs: dict = None):

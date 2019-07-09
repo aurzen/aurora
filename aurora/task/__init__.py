@@ -1,2 +1,2 @@
-import aurora.task.actionable
+import aurora.task.action
 import aurora.task.result
