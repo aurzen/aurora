@@ -1,8 +1,8 @@
 import asyncio
-import aurora.utils.zutils
+import aurcore.utils.zutils
 import functools
 
-@aurora.utils.zutils.parametrized
+@aurcore.utils.zutils.parametrized
 def every(func: callable, ms: int = 0, s: int = 0, mins: int = 0, hours: int = 0):
     s += ms / 1000
     s += mins / 60

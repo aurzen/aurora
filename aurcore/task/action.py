@@ -6,9 +6,9 @@ import discord
 import functools
 import abc
 import collections
-from aurora.utils.discord import send_to
-from aurora.utils.time import parse_time
-import aurora.event
+from aurcore.utils.discord import send_to
+from aurcore.utils.time import parse_time
+import aurcore.event
 
 
 class Action(abc.ABC):
@@ -35,7 +35,7 @@ class EventedAction(Action):
 
 class ActionRunner:
     def __init__(self):
-        self.autos: ty.Dict[aurora.event.Event, ty.List[Action]] = collections.defaultdict(list)
+        self.autos: ty.Dict[aurcore.event.Event, ty.List[Action]] = collections.defaultdict(list)
 
     def submit(self, action: Action):
         if isinstance(action, AutoAction):

@@ -2,7 +2,7 @@ import typing as ty
 
 import discord
 
-from aurora.utils.discord import send_to
+from aurcore.utils.discord import send_to
 
 
 class Result:

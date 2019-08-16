@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 import dateparser
 from functools import singledispatch
 
-from aurora.utils.text import is_int
+from aurcore.utils.text import is_int
 
 
 @singledispatch

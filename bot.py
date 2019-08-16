@@ -2,18 +2,18 @@ import logging
 
 
 import TOKENS
-import aurora
-from aurora import aurlux
+import aurcore
+from aurcore import aurlux
 logging.basicConfig(level=logging.INFO)
 
 
 
 config = {"PREFIX": "!"}
-client = aurora.aurlux.client.Lux(config)
-aurora.aurlux.client = client
+client = aurcore.aurlux.client.Lux(config)
+aurcore.aurlux.client = client
 
 
-@aurora.aurlux.timer.every(s=1, ms=500)
+@aurcore.aurlux.timer.every(s=1, ms=500)
 async def test():
     await client.get_channel(596464529253203971).send("pong!")
 
@@ -25,7 +25,7 @@ async def testerino(ctx: aurlux.Contexter):
 
 @client.command(name="remindme")
 async def remind_me(ctx: aurlux.CommandContext):
-    return aurora.task.action.Reminder()
+    return aurcore.task.action.Reminder()
 
 
 @client.command(name="ping")

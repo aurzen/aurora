@@ -1,4 +1,4 @@
-import aurora.aurlux as aurlux
+import aurcore.aurlux as aurlux
 import discord
 import collections
 import typing as ty

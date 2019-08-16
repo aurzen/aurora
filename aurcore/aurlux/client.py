@@ -7,11 +7,11 @@ import typing as ty
 
 import discord
 
-import aurora.aurlux as aurlux
-from aurora.aurlux import Command, Contexter
+import aurcore.aurlux as aurlux
+from aurcore.aurlux import Command, Contexter
 
-from aurora.utils import zutils
-import aurora.task as task
+from aurcore.utils import zutils
+import aurcore.task as task
 
 import functools
 

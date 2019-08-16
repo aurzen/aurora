@@ -4,7 +4,7 @@ import typing as ty
 import discord
 import functools
 
-from aurora.aurlux import state
+from aurcore.aurlux import state
 
 
 # test

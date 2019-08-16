@@ -1,7 +1,7 @@
 import discord
 
-from aurora.utils import zutils
-from aurora.utils.zutils import k_bool
+from aurcore.utils import zutils
+from aurcore.utils.zutils import k_bool
 
 
 class Contexter:
