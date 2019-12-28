@@ -7,6 +7,30 @@ def parametrized(dec):
 
     return layer
 
+def parametrized_im(decorator):
+    def layer(*args, **kwargs):
+        def repl(f):
+            return decorator(args[0], f, *args[1:], **kwargs)
+        return repl
+
+    return layer
+
+
+class Test():
+    @parametrized_im
+    def autoize(self,func, *args, **kwargs):
+        print(f"{func=}")
+        print(f"{args=}")
+        print(f"{kwargs=}")
+        return self
+
+t = Test()
+
+@t.autoize(ctx="affr")
+def tester():
+    print("Tester running")
+
+
 
 def query_dict_softcase(dictionary: dict, key):
     if key in dictionary.keys():
@@ -62,7 +86,7 @@ def execute(exec_type, statement, ctx=None, async_loop=None):
                               f"{indent * 2}await ctx.m.channel.send(traceback.format_exc())"
                               f"\n"
                               "async_loop.create_task(main())")
-            exec(wrapped_to_run, locals())
+            exec(wrapped_to_run, globals(), locals())
             print(f"Set return val in aexec?: {return_val}", flush=True)
             return_val = f"Created task successfully"
     except Exception:

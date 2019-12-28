@@ -10,7 +10,7 @@ logging.basicConfig(level=logging.INFO)
 
 config = {"PREFIX": "!"}
 client = aurcore.aurlux.client.Lux(config)
-aurcore.aurlux.client = client
+# aurcore.aurlux.client = client
 
 
 @aurcore.aurlux.timer.every(s=1, ms=500)
