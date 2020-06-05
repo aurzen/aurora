@@ -1,0 +1,14 @@
+[tool.poetry]
+name = "aurcore"
+version = "0.1.0"
+description = "Aurcore!"
+authors= ["Zenith <z@zenith.dev>"]
+
+[tool.poetry.dependencies]
+python = ">3.8"
+
+
+[tool.poetry.dev-dependencies]
+pytest = "*"
+pytest-asyncio = "*"
+pytest-repeat = "*"
