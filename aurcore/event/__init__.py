@@ -5,6 +5,7 @@ import asyncio
 import logging
 import collections as clc
 import functools as fnt
+import dataclasses as dtc
 
 logging.basicConfig()
 log = logging.getLogger("aurevent")
@@ -33,39 +34,6 @@ class AutoRepr:
 
 
 @AutoRepr
-class EventMuxer:
-    __router = None
-
-    def __init__(self, name):
-        self.name = name
-        # self.router : ty.Optional[EventRouter] = None
-        self.funcs: ty.List[ty.Callable[[Event], ty.Coroutine]] = []
-
-    async def fire(self, ev: Event):
-        # print([self.router.dispatch(ev)] if self.router else [] + [func(ev) for func in self.funcs])
-        if self.router: await self.router.dispatch(ev)
-        # for func in self.funcs:
-        #     await func(ev)
-        waiters = [self.router.dispatch(ev)] if self.router else []
-        return await asyncio.gather(*(waiters + [func(ev) for func in self.funcs]))
-
-    def add_listener(self, func: ty.Callable[[Event], ty.Awaitable]):
-        self.funcs.append(func)
-
-    @property
-    def router(self):
-        return self.__router
-
-    @router.setter
-    def router(self, router: EventRouter):
-        print(f"Attaching router {router} to {self}")
-        if self.__router:
-            raise ValueError(f"Attempted to set another router for {self}")
-        else:
-            self.__router = router
-
-
-@AutoRepr
 class Event:
     def __init__(self, __event_name, *args, **kwargs):
         self.name: str = __event_name
@@ -90,6 +58,57 @@ class Event:
         return self
 
 
+EventFunction: ty.TypeAlias = ty.Callable[[Event], ty.Coroutine]
+
+
+@dtc.dataclass(frozen=True)
+class EventWaiter:
+    future: asyncio.Future
+    check: ty.Callable[[Event], ty.Coroutine[bool]]
+
+
+@AutoRepr
+class EventMuxer:
+    __router = None
+
+    def __init__(self, name):
+        self.name = name
+        self.router: ty.Optional[EventRouter] = None
+        self.funcs: ty.Set[EventFunction] = set()
+        self.waiters: ty.Set[EventWaiter] = set()
+
+    async def fire(self, ev: Event):
+        # if self.router: await self.router.dispatch(ev)
+
+        done = set()
+        for waiter in self.waiters:
+            if await waiter.check(ev):
+                waiter.future.set_result(ev)
+                done.add(done)
+        self.waiters -= done
+
+        coros = [func(ev) for func in self.funcs]
+        if self.router: coros.append(self.router.dispatch(ev))
+        return await asyncio.gather(*coros)
+
+    def add_listener(self, func: ty.Union[EventFunction, EventWaiter]):
+        container = self.waiters if isinstance(func, EventWaiter) else self.funcs
+        container.add(func)
+        # self.one_times.add(one_time)
+
+    @property
+    def router(self):
+        return self.__router
+
+    @router.setter
+    def router(self, router: EventRouter):
+        print(f"Attaching router {router} to {self}")
+        if self.__router:
+            raise ValueError(f"Attempted to set another router for {self}")
+        else:
+            self.__router = router
+
+
 class EventRouter:
     def __init__(self, name, parent: EventRouter = None):
         self.name = name
@@ -102,19 +121,28 @@ class EventRouter:
     def endpoint(self, name: str, decompose=False):
         # print(f"attaching endpoint {name} to {self}")
         # print(f"{self} now has endpoint {self.name}")
-
         def __decorator(func: ty.Callable[[...], ty.Awaitable]):
-            @fnt.wraps(func)
-            async def __decompose(event: Event):
-                await func(*event.args, **event.kwargs)
+            if not asyncio.iscoroutinefunction(func):
+                @fnt.wraps(func)
+                async def __async_wrapper(event: Event):
+                    return func(event)
 
+                _func = __async_wrapper
+            else:
+                _func = func
+            if decompose:
+                @fnt.wraps(_func)
+                async def __decompose(event: Event):
+                    return await func(*event.args, **event.kwargs)
+
+                _func = __decompose
             logging.debug("[%s] Attaching endpoint %s:%s as <%s>", self, func.__name__, func.__annotations__, name)
 
-            self.register_listener(name=name, listener=__decompose if decompose else func)
-
+            self.register_listener(name=name, listener=_func)
+            return func
         return __decorator
 
-    def register_listener(self, name: str, listener: ty.Union[ty.Callable[[Event], ty.Awaitable], EventRouter]):
+    def register_listener(self, name: str, listener: ty.Union[EventFunction, EventRouter, EventWaiter]):
         logging.debug("[%s] Registering listener %s as <%s>", self, listener, name)
         if isinstance(listener, EventRouter):
             if ":" in name:
@@ -133,14 +161,13 @@ class EventRouter:
         if not name.startswith(self.name):
             raise ValueError(f"[{self}] Attempting to register listener with invalid route {name}")
 
-        assert not isinstance(listener, EventRouter)  # type check
-
         # _:target:remainder
         _, target, remainder, *_ = name.split(":", 2) + ["", ""]
         self.listeners.setdefault(target, EventMuxer(name=target))
 
         # if target not in self.listeners:
         #     raise ValueError(f"[{self}] No listener registered for {target} when resolving {name}. listeners: {self.listeners}")
+        # listener: ty.Union[EventFunction, EventWaiter]
         event_muxer = self.listeners[target]
         if remainder:  # target refers to a sub-router
             if sub_router := event_muxer.router:
@@ -204,19 +231,22 @@ class EventRouter:
         else:
             await self.dispatch(event)
 
-    async def wait_for(self, event_name, check: ty.Optional[ty.Callable[[Event], ty.Awaitable[bool]]] = None, timeout=None) -> asyncio.Future:
+    def wait_for(
+            self,
+            event_name: str,
+            check: ty.Union[ty.Callable[[Event], ty.Awaitable[bool]],
+                            ty.Callable[[Event], bool]] = lambda _: True,
+            timeout: ty.Optional[float] = None
+    ) -> asyncio.Future:
         ev = asyncio.Future()
-        if not check:
-            async def check(*args, **kwargs):
-                return True
-
-        async def check_event_setter(event: Event):
-            if not check(event):
-                return
-            # self.n
-            return Event
-
-        # self.register_listener(event_name, check_event_setter)
+        if not asyncio.iscoroutinefunction(check):
+            @fnt.wraps(check)
+            async def _check(event: Event):
+                return check(event)
+        else:
+            _check = check
+        event_waiter = EventWaiter(future=ev, check=_check)
+        self.register_listener(event_name, event_waiter)
 
         return asyncio.wait_for(ev, timeout)
 

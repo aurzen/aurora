@@ -22,6 +22,21 @@ def simple_router():
 
 
 @pytest.mark.asyncio
+async def test_nonasync_listener(event_loop, simple_router):
+    message = None
+
+    @simple_router.endpoint(":test")
+    def _(x):
+        nonlocal message
+        message = x
+
+    await simple_router.submit(aurcore.Event(":test", payload=dat()))
+    await asyncio.sleep(0)  # idk
+
+    assert message is not None
+
+
+@pytest.mark.asyncio
 async def test_local_event_submit_endpoint_receive(event_loop, simple_router):
     message = None
 
