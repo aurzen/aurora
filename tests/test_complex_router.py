@@ -3,8 +3,6 @@ import uuid
 import aurcore
 import asyncio
 
-
-
 def dat():
     return uuid.uuid4().hex
 

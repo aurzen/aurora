@@ -24,7 +24,7 @@ def simple_router():
 @pytest.mark.asyncio
 async def test_nonasync_listener(event_loop, simple_router):
     message = None
-
+    print(simple_router)
     @simple_router.endpoint(":test")
     def _(x):
         nonlocal message

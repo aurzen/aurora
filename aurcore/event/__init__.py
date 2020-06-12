@@ -12,10 +12,9 @@ log = logging.getLogger("aurevent")
 
 
 class AutoRepr:
-    @staticmethod
-    def repr(obj):
+    def __repr__(self):
         items = []
-        for prop, value in obj.__dict__.items():
+        for prop, value in self.__dict__.items():
             try:
                 item = "%s = %r" % (prop, value)
                 assert len(item) < 100
@@ -23,20 +22,35 @@ class AutoRepr:
                 item = "%s: <%s>" % (prop, value.__class__.__name__)
             items.append(item)
 
-        return "%s(%s)" % (obj.__class__.__name__, ', '.join(items))
+        return "%s(%s)" % (self.__class__.__name__, ', '.join(items))
 
-    def __init__(self, cls):
-        cls.__repr__ = AutoRepr.repr
-        self.cls = cls
-
-    def __call__(self, *args, **kwargs):
-        return self.cls(*args, **kwargs)
+    # class AutoRepr:
 
 
-@AutoRepr
-class Event:
-    def __init__(self, __event_name, *args, **kwargs):
-        self.name: str = __event_name
+#     @staticmethod
+#     def repr(obj):
+#         items = []
+#         for prop, value in obj.__dict__.items():
+#             try:
+#                 item = "%s = %r" % (prop, value)
+#                 assert len(item) < 100
+#             except:
+#                 item = "%s: <%s>" % (prop, value.__class__.__name__)
+#             items.append(item)
+#
+#         return "%s(%s)" % (obj.__class__.__name__, ', '.join(items))
+#
+#     def __init__(self, cls):
+#         cls.__repr__ = AutoRepr.repr
+#         self.cls = cls
+#
+#     def __call__(self, *args, **kwargs):
+#         return self.cls(*args, **kwargs)
+
+
+class Event(AutoRepr):
+    def __init__(self, __event_name: str, *args, **kwargs):
+        self.name: str = __event_name.lower()
         self.args: ty.Tuple = args
         self.kwargs: ty.Dict = kwargs
 
@@ -49,7 +63,6 @@ class Event:
         elif self.name.startswith(router.name) and router.parent:
             self.name = f":{self.name}"
 
-        print(f"{self.name}")
         return self
 
     def lower(self):
@@ -67,8 +80,7 @@ class EventWaiter:
     check: ty.Callable[[Event], ty.Coroutine[bool]]
 
 
-@AutoRepr
-class EventMuxer:
+class EventMuxer(AutoRepr):
     __router = None
 
     def __init__(self, name):
@@ -102,16 +114,15 @@ class EventMuxer:
 
     @router.setter
     def router(self, router: EventRouter):
-        print(f"Attaching router {router} to {self}")
         if self.__router:
             raise ValueError(f"Attempted to set another router for {self}")
         else:
             self.__router = router
 
 
-class EventRouter:
-    def __init__(self, name, parent: EventRouter = None):
-        self.name = name
+class EventRouter(AutoRepr):
+    def __init__(self, name: str, parent: EventRouter = None):
+        self.name = name.lower()
         self.parent = parent
         if self.parent:
             # self.name = f":{self.name}"
@@ -119,8 +130,6 @@ class EventRouter:
         self.listeners: ty.Dict[str, EventMuxer] = {}
 
     def endpoint(self, name: str, decompose=False):
-        # print(f"attaching endpoint {name} to {self}")
-        # print(f"{self} now has endpoint {self.name}")
         def __decorator(func: ty.Callable[[...], ty.Awaitable]):
             if not asyncio.iscoroutinefunction(func):
                 @fnt.wraps(func)
@@ -136,13 +145,15 @@ class EventRouter:
                     return await func(*event.args, **event.kwargs)
 
                 _func = __decompose
-            logging.debug("[%s] Attaching endpoint %s:%s as <%s>", self, func.__name__, func.__annotations__, name)
+            logging.debug("[%s] Attaching endpoint %s as <%s>", self, func.__name__, name.lower())
 
-            self.register_listener(name=name, listener=_func)
+            self.register_listener(name=name.lower(), listener=_func)
             return func
+
         return __decorator
 
     def register_listener(self, name: str, listener: ty.Union[EventFunction, EventRouter, EventWaiter]):
+        name = name.lower()
         logging.debug("[%s] Registering listener %s as <%s>", self, listener, name)
         if isinstance(listener, EventRouter):
             if ":" in name:
@@ -159,6 +170,8 @@ class EventRouter:
                 self.register_listener(f"{self.name}{name}", listener)
             return
         if not name.startswith(self.name):
+            if self.parent:
+                return self.parent.register_listener(name, listener)
             raise ValueError(f"[{self}] Attempting to register listener with invalid route {name}")
 
         # _:target:remainder
