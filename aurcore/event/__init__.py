@@ -184,13 +184,10 @@ class EventRouter(AutoRepr):
                 return self.parent.register_listener(name, listener)
             raise ValueError(f"[{self}] Attempting to register listener with invalid route {name}")
 
-        # _:target:remainder
         _, target, remainder, *_ = name.split(":", 2) + ["", ""]
         self.listeners.setdefault(target, EventMuxer(name=target))
 
-        # if target not in self.listeners:
-        #     raise ValueError(f"[{self}] No listener registered for {target} when resolving {name}. listeners: {self.listeners}")
-        # listener: ty.Union[EventFunction, EventWaiter]
+
         event_muxer = self.listeners[target]
         if remainder:  # target refers to a sub-router
             if sub_router := event_muxer.router:
@@ -201,6 +198,7 @@ class EventRouter(AutoRepr):
             event_muxer.add_listener(listener)
             # self.master_lookup[listener] = event_muxer
         logging.debug("[%s] Registered! Listeners[%s] Muxer[%s] Listner [%s]", self, self.listeners, event_muxer, listener)
+        print(f"Registering!! {event_muxer} {listener}")
         return event_muxer, listener
 
         #
