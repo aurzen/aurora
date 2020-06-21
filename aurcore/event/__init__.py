@@ -154,7 +154,7 @@ class EventRouter(AutoRepr):
                     return await func(*event.args, **event.kwargs)
 
                 _func = __decompose
-            logging.debug("[%s] Attaching endpoint %s as <%s>", self, func.__name__, name.lower())
+            logging.debug("[%s] Attaching endpoint %s as <%s>", self, func, name.lower())
 
             return self.register_listener(name=name.lower(), listener=_func)
             # return func
