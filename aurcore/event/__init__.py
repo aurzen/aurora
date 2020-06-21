@@ -109,7 +109,7 @@ class EventMuxer(AutoRepr):
 
     def add_listener(self, func: ty.Union[EventFunction, EventWaiter]):
         container = self.waiters if isinstance(func, EventWaiter) else self.funcs
-        print(f"adding {func}")
+        print(f"adding {func} on {self}")
         container.add(func)
         # self.one_times.add(one_time)
 
