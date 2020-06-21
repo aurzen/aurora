@@ -191,7 +191,7 @@ class EventRouter(AutoRepr):
         event_muxer = self.listeners[target]
         if remainder:  # target refers to a sub-router
             if sub_router := event_muxer.router:
-                sub_router.register_listener(f"{target}:{remainder}", listener)
+                return sub_router.register_listener(f"{target}:{remainder}", listener)
             else:
                 raise ValueError(f"[{self}] Attempting to descend into nonexistent subrouter {event_muxer} | {name}")
         else:  # target refers to a listener
