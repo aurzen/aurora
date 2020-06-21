@@ -96,12 +96,16 @@ class EventMuxer(AutoRepr):
         for waiter in self.waiters:
             if await waiter.check(ev):
                 waiter.future.set_result(ev)
-                done.add(done)
+                done.add(waiter)
         self.waiters -= done
 
         coros = [func(ev) for func in self.funcs]
         if self.router: coros.append(self.router.dispatch(ev))
         return await asyncio.gather(*coros)
+
+    def remove_listener(self, func: ty.Union[EventFunction, EventWaiter]):
+        container = self.waiters if isinstance(func, EventWaiter) else self.funcs
+        container.remove(func)
 
     def add_listener(self, func: ty.Union[EventFunction, EventWaiter]):
         container = self.waiters if isinstance(func, EventWaiter) else self.funcs
@@ -114,7 +118,7 @@ class EventMuxer(AutoRepr):
 
     @router.setter
     def router(self, router: EventRouter):
-        if self.__router:
+        if self.__router and router:
             raise ValueError(f"Attempted to set another router for {self}")
         else:
             self.__router = router
@@ -128,6 +132,10 @@ class EventRouter(AutoRepr):
             # self.name = f":{self.name}"
             self.parent.register_listener(self.name, self)
         self.listeners: ty.Dict[str, EventMuxer] = {}
+
+    @property
+    def root(self):
+        return self.parent.root if self.parent else self
 
     def endpoint(self, name: str, decompose=False):
         def __decorator(func: ty.Callable[[...], ty.Awaitable]):
@@ -147,12 +155,12 @@ class EventRouter(AutoRepr):
                 _func = __decompose
             logging.debug("[%s] Attaching endpoint %s as <%s>", self, func.__name__, name.lower())
 
-            self.register_listener(name=name.lower(), listener=_func)
-            return func
+            return self.register_listener(name=name.lower(), listener=_func)
+            # return func
 
         return __decorator
 
-    def register_listener(self, name: str, listener: ty.Union[EventFunction, EventRouter, EventWaiter]):
+    def register_listener(self, name: str, listener: ty.Union[EventFunction, EventRouter, EventWaiter]) -> ty.Tuple[EventMuxer, ty.Union[EventFunction, EventRouter, EventWaiter]]:
         name = name.lower()
         logging.debug("[%s] Registering listener %s as <%s>", self, listener, name)
         if isinstance(listener, EventRouter):
@@ -162,13 +170,14 @@ class EventRouter(AutoRepr):
             self.listeners.setdefault(listener.name, EventMuxer(name=name))
             # self.listeners[listener.name] = self.listeners.get(listener.name, EventMuxer(name=name))
             self.listeners[listener.name].router = listener
-            return
+            return self.listeners[listener.name], listener
+
         if name.startswith(":"):
             if self.parent:
-                self.parent.register_listener(f":{self.name}{name}", listener)
+                return self.parent.register_listener(f":{self.name}{name}", listener)
             else:
-                self.register_listener(f"{self.name}{name}", listener)
-            return
+                return self.register_listener(f"{self.name}{name}", listener)
+
         if not name.startswith(self.name):
             if self.parent:
                 return self.parent.register_listener(name, listener)
@@ -189,7 +198,9 @@ class EventRouter(AutoRepr):
                 raise ValueError(f"[{self}] Attempting to descend into nonexistent subrouter {event_muxer} | {name}")
         else:  # target refers to a listener
             event_muxer.add_listener(listener)
+            # self.master_lookup[listener] = event_muxer
         logging.debug("[%s] Registered! Listeners[%s] Muxer[%s] Listner [%s]", self, self.listeners, event_muxer, listener)
+        return event_muxer, listener
 
         #
         # elif name.startswith(":"):
@@ -209,31 +220,6 @@ class EventRouter(AutoRepr):
         #     else:
         #         self.register_listener(name.removeprefix(self.name), listener)
         # logging.debug("[%s] Finished registering listener %s as <%s>, new listeners: %s", self, listener, name, self.listeners)
-
-    def deregister_listener(self, name: str):
-        logging.debug("[%s] Deregistering listener <%s>", self, name)
-
-        #
-        # if name.startswith(":"):
-        #     self.
-        # elif name.startswith(":"):
-        #     name = name[1:]
-        #     final_listener = listener
-        #     if isinstance(listener, ty.Callable) and not asyncio.iscoroutinefunction(listener):
-        #         async def __coro_wrapper(*args, **kwargs):
-        #             return listener(*args, **kwargs)
-        #
-        #         final_listener = __coro_wrapper
-        #     self.listeners[name].remove(final_listener)
-        # else:
-        #     if not name.startswith(f"{self.name}:"):
-        #         if not self.parent:
-        #             raise ValueError(f"Attempting to register invalid listener {self.name} on {self}")
-        #         self.parent.deregister_listener(name)
-        #     else:
-        #         self.register_listener(name.removeprefix(self.name), listener)
-        # logging.debug("[%s] Finished registering listener %s as <%s>, new listeners: %s", self, listener, name, self.listeners)
-        #
 
     async def submit(self, event: Event):
         logging.debug("[%s] Submitting event (%s)", self, event)
