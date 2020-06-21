@@ -138,6 +138,12 @@ class EventRouter(AutoRepr):
     def root(self):
         return self.parent.root if self.parent else self
 
+    def detatch_child(self, child_router: EventRouter):
+        self.listeners[child_router.name].router = None
+
+    def detatch(self):
+        self.parent.detatch_child(self)
+
     def endpoint(self, name: str, decompose=False):
         def __decorator(func: ty.Callable[[...], ty.Awaitable]):
             if not asyncio.iscoroutinefunction(func):
@@ -186,7 +192,6 @@ class EventRouter(AutoRepr):
 
         _, target, remainder, *_ = name.split(":", 2) + ["", ""]
         self.listeners.setdefault(target, EventMuxer(name=target))
-
 
         event_muxer = self.listeners[target]
         if remainder:  # target refers to a sub-router
