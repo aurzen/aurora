@@ -94,8 +94,10 @@ class EventMuxer(AutoRepr):
 
         # if self.router: await self.router.dispatch(ev)
         async with self.__lock:
-            new_waiters = set()
+            new_waiters: ty.Set[EventWaiter] = set()
             for waiter in self.waiters:
+                if waiter.future.cancelled():
+                    continue
                 if await waiter.check(ev):
                     waiter.future.set_result(ev)
                 else:
