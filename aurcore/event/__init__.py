@@ -82,6 +82,7 @@ class EventWaiter:
 
 class EventMuxer(AutoRepr):
     __router = None
+    __lock = asyncio.Lock()
 
     def __init__(self, name):
         self.name = name
@@ -90,16 +91,16 @@ class EventMuxer(AutoRepr):
         self.waiters: ty.Set[EventWaiter] = set()
 
     async def fire(self, ev: Event):
+
         # if self.router: await self.router.dispatch(ev)
-
-        new_waiters = set()
-        for waiter in self.waiters:
-            if await waiter.check(ev):
-                waiter.future.set_result(ev)
-            else:
-                new_waiters.add(waiter)
-        self.waiters = new_waiters
-
+        with self.__lock.acquire():
+            new_waiters = set()
+            for waiter in self.waiters:
+                if await waiter.check(ev):
+                    waiter.future.set_result(ev)
+                else:
+                    new_waiters.add(waiter)
+            self.waiters = new_waiters
 
         coros = [func(ev) for func in self.funcs]
         if self.router: coros.append(self.router.dispatch(ev))
