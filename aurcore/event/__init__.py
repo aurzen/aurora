@@ -92,12 +92,14 @@ class EventMuxer(AutoRepr):
     async def fire(self, ev: Event):
         # if self.router: await self.router.dispatch(ev)
 
-        done = set()
+        new_waiters = set()
         for waiter in self.waiters:
             if await waiter.check(ev):
                 waiter.future.set_result(ev)
-                done.add(waiter)
-        self.waiters -= done
+            else:
+                new_waiters.add(waiter)
+        self.waiters = new_waiters
+
 
         coros = [func(ev) for func in self.funcs]
         if self.router: coros.append(self.router.dispatch(ev))
