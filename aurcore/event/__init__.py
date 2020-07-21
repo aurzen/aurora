@@ -93,7 +93,7 @@ class EventMuxer(AutoRepr):
     async def fire(self, ev: Event):
 
         # if self.router: await self.router.dispatch(ev)
-        with self.__lock.acquire():
+        async with self.__lock.acquire():
             new_waiters = set()
             for waiter in self.waiters:
                 if await waiter.check(ev):
