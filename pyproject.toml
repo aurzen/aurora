@@ -1,12 +1,11 @@
 [tool.poetry]
 name = "aurcore"
-version = "0.1.28"
+version = "0.1.29"
 description = "Aurcore!"
 authors= ["Zenith <z@zenith.dev>"]
 
 [tool.poetry.dependencies]
 python = ">3.8"
-websockets = "6.0"
 
 
 [tool.poetry.dev-dependencies]
