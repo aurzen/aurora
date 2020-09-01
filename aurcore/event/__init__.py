@@ -172,7 +172,7 @@ class EventRouter(AutoRepr):
 
         return __decorator
 
-    def register_listener(self, name: str, listener: ty.Union[EventFunction, EventRouter, EventWaiter]) -> ty.Tuple[EventMuxer, ty.Union[EventFunction, EventRouter, EventWaiter]]:
+    def register_listener(self, name: str, listener: ty.Union[EventFunction, EventRouter, EventWaiter]) -> ty.Union[EventFunction, EventRouter, EventWaiter]:
         name = name.lower()
         logging.debug("[%s] Registering listener %s as <%s>", self, listener, name)
         if isinstance(listener, EventRouter):
@@ -209,7 +209,7 @@ class EventRouter(AutoRepr):
             # self.master_lookup[listener] = event_muxer
         logging.debug("[%s] Registered! Listeners[%s] Muxer[%s] Listner [%s]", self, self.listeners, event_muxer, listener)
         print(f"Registering!! {event_muxer} {listener}")
-        return event_muxer, listener
+        return listener
 
         #
         # elif name.startswith(":"):
