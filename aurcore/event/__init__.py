@@ -149,7 +149,7 @@ class EventRouter(AutoRepr):
     def detatch(self):
         self.parent.detatch_child(self)
 
-    def endpoint(self, name: str, decompose=False):
+    def endpoint(self, name: str, decompose=False) -> ty.Callable[[ty.Callable], EventMuxer]:
         def __decorator(func: ty.Callable[[...], ty.Awaitable]):
             if not asyncio.iscoroutinefunction(func):
                 @fnt.wraps(func)
@@ -172,7 +172,7 @@ class EventRouter(AutoRepr):
 
         return __decorator
 
-    def register_listener(self, name: str, listener: ty.Union[EventFunction, EventRouter, EventWaiter]) -> ty.Union[EventFunction, EventRouter, EventWaiter]:
+    def register_listener(self, name: str, listener: ty.Union[EventFunction, EventRouter, EventWaiter]) -> EventMuxer:
         name = name.lower()
         logging.debug("[%s] Registering listener %s as <%s>", self, listener, name)
         if isinstance(listener, EventRouter):
@@ -182,7 +182,7 @@ class EventRouter(AutoRepr):
             self.listeners.setdefault(listener.name, EventMuxer(name=name))
             # self.listeners[listener.name] = self.listeners.get(listener.name, EventMuxer(name=name))
             self.listeners[listener.name].router = listener
-            return self.listeners[listener.name], listener
+            return self.listeners[listener.name]
 
         if name.startswith(":"):
             if self.parent:
@@ -209,7 +209,7 @@ class EventRouter(AutoRepr):
             # self.master_lookup[listener] = event_muxer
         logging.debug("[%s] Registered! Listeners[%s] Muxer[%s] Listner [%s]", self, self.listeners, event_muxer, listener)
         print(f"Registering!! {event_muxer} {listener}")
-        return listener
+        return event_muxer
 
         #
         # elif name.startswith(":"):
