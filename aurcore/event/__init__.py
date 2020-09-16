@@ -57,31 +57,25 @@ class EventWaiter:
 
 
 class Eventful(util.AutoRepr):
-   EventableFunc: ty.TypeAlias = ty.Callable[[Event], ty.Awaitable[None]]
-   Eventable: ty.TypeAlias = ty.Union[EventableFunc, EventWaiter]
+   EventableFunc: ty.TypeAlias = ty.Callable[[Event], ty.Awaitable[ty.Optional[bool]]]
    f: EventableFunc
 
-   def __init__(self, muxer: EventMuxer, eventable: Eventable):
+   def __init__(self, muxer: EventMuxer, eventable: EventableFunc):
       self.retain = True
       self.muxer = muxer
-      # if isinstance(eventable, EventWaiter):
-      #    async def __waiter_wrapper(event: Event):
-      #       if eventable.future.cancelled():
-      #          self.retain = False
-      #       elif await eventable.check(event):
-      #          eventable.future.set_result(event)
-      #          self.retain = False
-      #
-      #    self.f = __waiter_wrapper
-      # else:
       self.f = util.coroify(eventable)
+      self.f_orig = self.f
 
-   def __call__(self, event: Event) -> ty.Awaitable[bool]:
-      async def __retain_wrapper(ev: Event):
-         await self.f(ev)
-         return self.retain
-
-      return __retain_wrapper(event)
+   def __call__(self, event: Event) -> ty.Awaitable[ty.Optional[bool]]:
+      # Listeners return True to delete themselves, anything else (None) to
+      async def should_retain():
+         should_delete = await self.f(event)
+         if should_delete is True:
+            return False
+         if should_delete is None:
+            return True
+         raise RuntimeError(f"{self.f} returned something other than [True, None]")
+      return should_retain()
 
    @staticmethod
    def decompose(func: ty.Callable[[...], ty.Awaitable[None]]) -> ty.Callable[[...], ty.Awaitable[None]]:
@@ -147,7 +141,7 @@ class EventRouter(util.AutoRepr):
       self.host.register(self)
       self.muxers: ty.Dict[str, EventMuxer] = {}
 
-   def _register_listener(self, event_name: str, listener: Eventful.Eventable):
+   def _register_listener(self, event_name: str, listener: Eventful.EventableFunc):
       event_name = Event.hoist_name(event_name.lower(), self)
 
       if event_name not in self.muxers:

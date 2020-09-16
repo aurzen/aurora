@@ -44,30 +44,6 @@ class AwaitableAiter:
       return results().__await__()
 
 
-async def ticker():
-   for i in range(5):
-      print(i)
-
-      yield i
-      await asyncio.sleep(0.5)
-
-
-async def run():
-   # async for i in AwaitableAiter(ticker()):
-   #    print(i)
-   x = AwaitableAiter(ticker())
-   print(await x)
-   # print(await x)
-
-
-import asyncio
-
-loop = asyncio.get_event_loop()
-try:
-   loop.run_until_complete(run())
-finally:
-   loop.close()
-
 
 def aiterify(obj: ty.Union[ty.Coroutine, ty.AsyncIterable]):
    if aio.iscoroutine(obj) or aio.isfuture(obj):
