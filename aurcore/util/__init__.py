@@ -3,7 +3,7 @@ import functools as fnt
 import typing as ty
 
 
-def int_to_ordinal(n: int):
+def int_to_ordinal(n: int) -> str:
    return "%d%s" % (n, "tsnrhtdd"[(n // 10 % 10 != 1) * (n % 10 < 4) * n % 10::4])
 
 
@@ -18,6 +18,56 @@ def delay(coro: ty.Coroutine, seconds: float = 0):
       await coro
 
    return __delay_coro()
+
+
+class AwaitableAiter:
+   aiter: ty.AsyncGenerator
+
+   def __init__(self, obj: ty.Union[ty.Coroutine, ty.AsyncIterable]):
+      if aio.iscoroutine(obj) or aio.isfuture(obj):
+         async def gen():
+            yield await obj
+
+         self.aiter = gen()
+
+      elif isinstance(obj, ty.AsyncGenerator):
+         self.aiter = obj
+
+   def __aiter__(self):
+      return self.aiter.__aiter__()
+
+   def __await__(self):
+      async def results():
+         res = await self.aiter.__anext__()
+         c = await self.aiter.aclose()
+         return res
+      return results().__await__()
+
+
+async def ticker():
+   for i in range(5):
+      print(i)
+
+      yield i
+      await asyncio.sleep(0.5)
+
+
+async def run():
+   # async for i in AwaitableAiter(ticker()):
+   #    print(i)
+   x = AwaitableAiter(ticker())
+   print(await x)
+   # print(await x)
+
+
+import asyncio
+
+loop = asyncio.get_event_loop()
+try:
+   loop.run_until_complete(run())
+finally:
+   loop.close()
+
 
 def aiterify(obj: ty.Union[ty.Coroutine, ty.AsyncIterable]):
    if aio.iscoroutine(obj) or aio.isfuture(obj):

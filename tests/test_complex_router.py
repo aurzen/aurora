@@ -27,7 +27,7 @@ def dat():
    ("test", "", "", ""),
    ("test", "", "", ""),
    ("test", "test", "test~", "1"),
-   ("test", "test~", "test", "1"),
+   ("test", "test~", "test", "2"),
 
 ])
 async def test_two_router_test_from_host(

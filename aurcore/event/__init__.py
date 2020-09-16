@@ -6,8 +6,8 @@ import functools as fnt
 import itertools as itt
 import collections as clc
 import typing as ty
-
-import util
+import time
+from aurcore import util
 
 
 class Event(util.AutoRepr):
@@ -24,33 +24,59 @@ class Event(util.AutoRepr):
       self.name = Event.hoist_name(self.name, router)
 
 
-@dtc.dataclass(frozen=True)
+# @dtc.dataclass(frozen=True)
 class EventWaiter:
    future: aio.Future
-   check: ty.Callable[[Event], ty.Coroutine[bool]]
+
+   def __init__(self, check: ty.Callable[[Event], ty.Awaitable[bool]], timeout: ty.Optional[float], max_matches: ty.Optional[int]):
+      self.check = check
+      self.timeout = timeout
+      self.start = time.perf_counter()
+      self.max_results = max_matches
+      self.queue = aio.Queue()
+      self.done = False
+
+   async def listener(self, event: Event):
+      if self.done:
+         return True
+      if self.timeout is not None and (time.perf_counter() - self.start) > self.timeout:
+         raise aio.TimeoutError()
+      if await self.check(event):
+         await self.queue.put(event)
+
+   async def producer(self):
+      try:
+         results = 0
+         while self.max_results is None or results < self.max_results:
+            yield await self.queue.get()
+            if self.max_results:
+               results += 1
+      except GeneratorExit:
+         self.done = True
+         raise GeneratorExit()
 
 
 class Eventful(util.AutoRepr):
-   f: ty.Callable
-   EventableFunc: ty.TypeAlias = ty.Callable[[Event], ty.Coroutine]
+   EventableFunc: ty.TypeAlias = ty.Callable[[Event], ty.Awaitable[None]]
    Eventable: ty.TypeAlias = ty.Union[EventableFunc, EventWaiter]
+   f: EventableFunc
 
    def __init__(self, muxer: EventMuxer, eventable: Eventable):
       self.retain = True
       self.muxer = muxer
-      if isinstance(eventable, EventWaiter):
-         async def __waiter_wrapper(event: Event):
-            if eventable.future.cancelled():
-               self.retain = False
-            elif await eventable.check(event):
-               eventable.future.set_result(event)
-               self.retain = False
+      # if isinstance(eventable, EventWaiter):
+      #    async def __waiter_wrapper(event: Event):
+      #       if eventable.future.cancelled():
+      #          self.retain = False
+      #       elif await eventable.check(event):
+      #          eventable.future.set_result(event)
+      #          self.retain = False
+      #
+      #    self.f = __waiter_wrapper
+      # else:
+      self.f = util.coroify(eventable)
 
-         self.f = __waiter_wrapper
-      else:
-         self.f = util.coroify(eventable)
-
-   def __call__(self, event: Event) -> ty.Coroutine:
+   def __call__(self, event: Event) -> ty.Awaitable[bool]:
       async def __retain_wrapper(ev: Event):
          await self.f(ev)
          return self.retain
@@ -58,10 +84,10 @@ class Eventful(util.AutoRepr):
       return __retain_wrapper(event)
 
    @staticmethod
-   def decompose(func: ty.Callable[[...], ty.Coroutine]) -> EventableFunc:
+   def decompose(func: ty.Callable[[...], ty.Awaitable[None]]) -> ty.Callable[[...], ty.Awaitable[None]]:
       @fnt.wraps(func)
-      def __decompose_wrapper(event: Event):
-         return func(*event.args, **event.kwargs)
+      async def __decompose_wrapper(event: Event):
+         await func(*event.args, **event.kwargs)
 
       return __decompose_wrapper
 
@@ -135,19 +161,19 @@ class EventRouter(util.AutoRepr):
       event_name = Event.hoist_name(event_name.lower(), self)
 
       def listen_deco(func: Eventful.EventableFunc):
+         func_: Eventful.EventableFunc = util.coroify(func)
          if decompose:
-            self._register_listener(event_name, Eventful.decompose(func))
+            self._register_listener(event_name, Eventful.decompose(func_))
          else:
-            self._register_listener(event_name, func)
+            self._register_listener(event_name, func_)
          return func
 
       return listen_deco
 
-   def wait_for(self, event_name: str, check: ty.Callable[[Event], bool], timeout: float) -> aio.Future:
-      fut = aio.Future()
-      ev_waiter: EventWaiter = EventWaiter(future=fut, check=util.coroify(check))
-      self._register_listener(event_name=event_name, listener=ev_waiter)
-      return aio.wait_for(fut, timeout=timeout)
+   def wait_for(self, event_name: str, check: ty.Callable[[Event], bool], timeout: float = None, max_matches=1) -> util.AwaitableAiter:
+      ev_waiter: EventWaiter = EventWaiter(check=util.coroify(check), timeout=timeout, max_matches=max_matches)
+      self._register_listener(event_name=event_name, listener=ev_waiter.listener)
+      return util.AwaitableAiter(ev_waiter.producer())
 
    async def submit(self, event: Event) -> None:
       event.hoist(self)
