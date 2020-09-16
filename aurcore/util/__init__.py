@@ -23,7 +23,7 @@ def delay(coro: ty.Coroutine, seconds: float = 0):
 class AwaitableAiter:
    aiter: ty.AsyncGenerator
 
-   def __init__(self, obj: ty.Union[ty.Coroutine, ty.AsyncIterable]):
+   def __init__(self, obj: ty.Union[ty.Coroutine, ty.AsyncIterable, ty.Awaitable]):
       if aio.iscoroutine(obj) or aio.isfuture(obj):
          async def gen():
             yield await obj

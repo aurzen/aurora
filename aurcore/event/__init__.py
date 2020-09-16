@@ -111,7 +111,7 @@ class EventMuxer(util.AutoRepr):
 
 
 class EventRouterHost(util.AutoRepr):
-   def __init__(self, name: ty.Optional[str] = "Unnamed"):
+   def __init__(self, name: str = "Unnamed"):
       self.name = name.lower()
       self.routers: ty.Dict[str, ty.List[EventRouter]] = clc.defaultdict(list)
 
