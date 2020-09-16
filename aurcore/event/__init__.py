@@ -1,282 +1,150 @@
 from __future__ import annotations
 
-import typing as ty
-import asyncio
-import logging
-import collections as clc
-import functools as fnt
+import asyncio as aio
 import dataclasses as dtc
+import functools as fnt
+import itertools as itt
+import typing as ty
 
-logging.basicConfig()
-log = logging.getLogger("aurevent")
-
-
-class AutoRepr:
-    def __repr__(self):
-        items = []
-        for prop, value in self.__dict__.items():
-            try:
-                item = "%s = %r" % (prop, value)
-                assert len(item) < 100
-            except:
-                item = "%s: <%s>" % (prop, value.__class__.__name__)
-            items.append(item)
-
-        return "%s(%s)" % (self.__class__.__name__, ', '.join(items))
-
-    # class AutoRepr:
+import util
 
 
-#     @staticmethod
-#     def repr(obj):
-#         items = []
-#         for prop, value in obj.__dict__.items():
-#             try:
-#                 item = "%s = %r" % (prop, value)
-#                 assert len(item) < 100
-#             except:
-#                 item = "%s: <%s>" % (prop, value.__class__.__name__)
-#             items.append(item)
-#
-#         return "%s(%s)" % (obj.__class__.__name__, ', '.join(items))
-#
-#     def __init__(self, cls):
-#         cls.__repr__ = AutoRepr.repr
-#         self.cls = cls
-#
-#     def __call__(self, *args, **kwargs):
-#         return self.cls(*args, **kwargs)
+class Event(util.AutoRepr):
+   def __init__(self, __event_name: str, *args, **kwargs):
+      self.name: str = __event_name.lower()
+      self.args: ty.Tuple = args
+      self.kwargs: ty.Dict = kwargs
 
+   @staticmethod
+   def hoist_name(event_name: str, router: EventRouter):
+      return f"{router.name if event_name.startswith(':') else ''}{event_name}"
 
-class Event(AutoRepr):
-    def __init__(self, __event_name: str, *args, **kwargs):
-        self.name: str = __event_name.lower()
-        self.args: ty.Tuple = args
-        self.kwargs: ty.Dict = kwargs
-
-    def elevate(self, router: EventRouter):
-        if self.name.startswith(":"):
-            self.name = f"{router.name}{self.name}"
-            if router.parent:
-                self.name = f":{self.name}"
-
-        elif self.name.startswith(router.name) and router.parent:
-            self.name = f":{self.name}"
-
-        return self
-
-    def lower(self):
-        self.name: str = self.name.partition(":")[2]
-        # print(f"new name: {self.name}")
-        return self
-
-
-EventFunction: ty.TypeAlias = ty.Callable[[Event], ty.Coroutine]
+   def hoist(self, router: EventRouter):
+      self.name = Event.hoist_name(self.name, router)
 
 
 @dtc.dataclass(frozen=True)
 class EventWaiter:
-    future: asyncio.Future
-    check: ty.Callable[[Event], ty.Coroutine[bool]]
+   future: aio.Future
+   check: ty.Callable[[Event], ty.Coroutine[bool]]
 
 
-class EventMuxer(AutoRepr):
-    __router = None
-    __lock = asyncio.Lock()
+class Eventful(util.AutoRepr):
+   f: ty.Callable
+   EventableFunc: ty.TypeAlias = ty.Callable[[Event], ty.Coroutine]
+   Eventable: ty.TypeAlias = ty.Union[EventableFunc, EventWaiter]
 
-    def __init__(self, name):
-        self.name = name
-        self.router: ty.Optional[EventRouter] = None
-        self.funcs: ty.Set[EventFunction] = set()
-        self.waiters: ty.Set[EventWaiter] = set()
+   def __init__(self, muxer: EventMuxer, eventable: Eventable):
+      self.retain = True
+      self.muxer = muxer
+      if isinstance(eventable, EventWaiter):
+         async def __waiter_wrapper(event: Event):
+            if eventable.future.cancelled():
+               self.retain = False
+            elif await eventable.check(event):
+               eventable.future.set_result(event)
+               self.retain = False
 
-    async def fire(self, ev: Event):
+         self.f = __waiter_wrapper
+      else:
+         self.f = util.coroify(eventable)
 
-        # if self.router: await self.router.dispatch(ev)
-        async with self.__lock:
-            new_waiters: ty.Set[EventWaiter] = set()
-            for waiter in self.waiters:
-                if waiter.future.cancelled():
-                    continue
-                if await waiter.check(ev):
-                    waiter.future.set_result(ev)
-                else:
-                    new_waiters.add(waiter)
-            self.waiters = new_waiters
+   def __call__(self, event: Event) -> ty.Coroutine:
+      async def __retain_wrapper(ev: Event):
+         await self.f(ev)
+         return self.retain
 
-        coros = [func(ev) for func in self.funcs]
-        if self.router: coros.append(self.router.dispatch(ev))
-        return await asyncio.gather(*coros)
+      return __retain_wrapper(event)
 
-    def remove_listener(self, func: ty.Union[EventFunction, EventWaiter]):
-        container = self.waiters if isinstance(func, EventWaiter) else self.funcs
-        container.remove(func)
+   @staticmethod
+   def decompose(func: ty.Callable[[...], ty.Coroutine]) -> EventableFunc:
+      @fnt.wraps(func)
+      def __decompose_wrapper(event: Event):
+         return func(*event.args, **event.kwargs)
 
-    def add_listener(self, func: ty.Union[EventFunction, EventWaiter]):
-        container = self.waiters if isinstance(func, EventWaiter) else self.funcs
-        print(f"adding {func} on {self}")
-        container.add(func)
-        # self.one_times.add(one_time)
-
-    @property
-    def router(self):
-        return self.__router
-
-    @router.setter
-    def router(self, router: EventRouter):
-        if self.__router and router:
-            raise ValueError(f"Attempted to set another router for {self}")
-        else:
-            self.__router = router
+      return __decompose_wrapper
 
 
-class EventRouter(AutoRepr):
-    def __init__(self, name: str, parent: EventRouter = None):
-        self.name = name.lower()
-        self.parent = parent
-        if self.parent:
-            # self.name = f":{self.name}"
-            self.parent.register_listener(self.name, self)
-        self.listeners: ty.Dict[str, EventMuxer] = {}
+class EventMuxer(util.AutoRepr):
+   def __init__(self, name: str, router: EventRouter):
+      self.name = name
+      self.router = router
+      self.eventfuls: ty.List[Eventful] = []
+      self.__lock = aio.Lock()
 
-    @property
-    def root(self):
-        return self.parent.root if self.parent else self
+   async def fire(self, ev: Event) -> None:
+      async with self.__lock:
+         results: ty.List[ty.Union[bool, BaseException]] = await aio.gather(
+            *[eventful(ev) for eventful in self.eventfuls],
+            return_exceptions=True)
+         self.eventfuls = list(itt.compress(self.eventfuls, results))  # Exceptions are truthy
+      for result in results:
+         if isinstance(result, Exception):
+            raise result
 
-    def detatch_child(self, child_router: EventRouter):
-        self.listeners[child_router.name].router = None
+   def register(self, eventful: Eventful):
+      self.eventfuls.append(eventful)
 
-    def detatch(self):
-        self.parent.detatch_child(self)
+   def __str__(self):
+      return f"EventMuxer {self.name} | Router: {self.router} | Eventfuls: {self.eventfuls}"
 
-    def endpoint(self, name: str, decompose=False) -> ty.Callable[[ty.Callable], EventMuxer]:
-        def __decorator(func: ty.Callable[[...], ty.Awaitable]):
-            if not asyncio.iscoroutinefunction(func):
-                @fnt.wraps(func)
-                async def __async_wrapper(event: Event):
-                    return func(event)
 
-                _func = __async_wrapper
-            else:
-                _func = func
-            if decompose:
-                @fnt.wraps(_func)
-                async def __decompose(event: Event):
-                    return await func(*event.args, **event.kwargs)
+class EventRouterHost(util.AutoRepr):
+   def __init__(self, name: ty.Optional[str] = "Unnamed"):
+      self.name = name
+      self.routers: ty.Dict[str, EventRouter] = {}
 
-                _func = __decompose
-            logging.debug("[%s] Attaching endpoint %s as <%s>", self, func, name.lower())
+   def __str__(self):
+      return f"EventRouterHost {self.name} | Routers: {self.routers}"
 
-            return self.register_listener(name=name.lower(), listener=_func)
-            # return func
+   def register(self, router: EventRouter) -> None:
+      if router.name in self.routers:
+         raise RuntimeError(f"[{self}] already has an event router named {router.name}")
+      self.routers[router.name] = router
 
-        return __decorator
+   # noinspection PyProtectedMember
+   async def submit(self, event: Event):
+      await aio.gather(*[router._dispatch(event) for router in self.routers.values()])
 
-    def register_listener(self, name: str, listener: ty.Union[EventFunction, EventRouter, EventWaiter]) -> EventMuxer:
-        name = name.lower()
-        logging.debug("[%s] Registering listener %s as <%s>", self, listener, name)
-        if isinstance(listener, EventRouter):
-            if ":" in name:
-                raise ValueError(f"[{self}] : not allowed in listener identifier, register sub-router locally")
-            listener.parent = self
-            self.listeners.setdefault(listener.name, EventMuxer(name=name))
-            # self.listeners[listener.name] = self.listeners.get(listener.name, EventMuxer(name=name))
-            self.listeners[listener.name].router = listener
-            return self.listeners[listener.name]
 
-        if name.startswith(":"):
-            if self.parent:
-                return self.parent.register_listener(f":{self.name}{name}", listener)
-            else:
-                return self.register_listener(f"{self.name}{name}", listener)
+class EventRouter(util.AutoRepr):
+   def __init__(self, name: str, host: EventRouterHost):
+      self.name = name
+      self.host = host
+      self.host.register(self)
+      self.muxers: ty.Dict[str, EventMuxer] = {}
 
-        if not name.startswith(self.name):
-            if self.parent:
-                return self.parent.register_listener(name, listener)
-            raise ValueError(f"[{self}] Attempting to register listener with invalid route {name}")
+   def _register_listener(self, event_name: str, listener: Eventful.Eventable):
+      event_name = Event.hoist_name(event_name.lower(), self)
 
-        _, target, remainder, *_ = name.split(":", 2) + ["", ""]
-        self.listeners.setdefault(target, EventMuxer(name=target))
+      if event_name not in self.muxers:
+         self.muxers[event_name] = EventMuxer(name=event_name, router=self)
+      muxer = self.muxers[event_name]
 
-        event_muxer = self.listeners[target]
-        if remainder:  # target refers to a sub-router
-            if sub_router := event_muxer.router:
-                return sub_router.register_listener(f"{target}:{remainder}", listener)
-            else:
-                raise ValueError(f"[{self}] Attempting to descend into nonexistent subrouter {event_muxer} | {name}")
-        else:  # target refers to a listener
-            event_muxer.add_listener(listener)
-            # self.master_lookup[listener] = event_muxer
-        logging.debug("[%s] Registered! Listeners[%s] Muxer[%s] Listner [%s]", self, self.listeners, event_muxer, listener)
-        print(f"Registering!! {event_muxer} {listener}")
-        return event_muxer
+      listener = Eventful(muxer=muxer, eventable=listener)
+      muxer.register(listener)
 
-        #
-        # elif name.startswith(":"):
-        #     name = name[1:]
-        #     final_listener = listener
-        #     if isinstance(listener, ty.Callable) and not asyncio.iscoroutinefunction(listener):
-        #         async def __coro_wrapper(*args, **kwargs):
-        #             return listener(*args, **kwargs)
-        #
-        #         final_listener = __coro_wrapper
-        #     self.listeners[name].add(final_listener)
-        # else:
-        #     if not name.startswith(f"{self.name}:"):
-        #         if not self.parent:
-        #             raise ValueError(f"Attempting to register invalid listener {self.name} on {self}")
-        #         self.parent.register_listener(name, listener)
-        #     else:
-        #         self.register_listener(name.removeprefix(self.name), listener)
-        # logging.debug("[%s] Finished registering listener %s as <%s>, new listeners: %s", self, listener, name, self.listeners)
+   def listen_for(self, event_name: str, decompose=False):
+      event_name = Event.hoist_name(event_name.lower(), self)
 
-    async def submit(self, event: Event):
-        logging.debug("[%s] Submitting event (%s)", self, event)
-        event.elevate(self)
+      def listen_deco(func: Eventful.EventableFunc):
+         if decompose:
+            self._register_listener(event_name, Eventful.decompose(func))
+         else:
+            self._register_listener(event_name, func)
+         return func
 
-        if self.parent:
-            await self.parent.submit(event)
-        else:
-            await self.dispatch(event)
+      return listen_deco
 
-    def wait_for(
-            self,
-            event_name: str,
-            check: ty.Union[ty.Callable[[Event], ty.Awaitable[bool]],
-                            ty.Callable[[Event], bool]] = lambda _: True,
-            timeout: ty.Optional[float] = None
-    ) -> asyncio.Future:
-        ev = asyncio.Future()
-        if not asyncio.iscoroutinefunction(check):
-            @fnt.wraps(check)
-            async def _check(event: Event):
-                return check(event)
-        else:
-            _check = check
-        event_waiter = EventWaiter(future=ev, check=_check)
-        self.register_listener(event_name, event_waiter)
+   def wait_for(self, event_name: str, check: ty.Callable[[Event], bool], timeout: float) -> aio.Future:
+      fut = aio.Future()
+      ev_waiter: EventWaiter = EventWaiter(future=fut, check=util.coroify(check))
+      self._register_listener(event_name=event_name, listener=ev_waiter)
+      return aio.wait_for(fut, timeout=timeout)
 
-        return asyncio.wait_for(ev, timeout)
+   async def submit(self, event: Event) -> None:
+      event.hoist(self)
+      await self.host.submit(event)
 
-    async def dispatch(self, event: Event):
-        logging.debug("[%s] Dispatching event (%s), current listeners: %s", self, event, self.listeners)
-        chunked = event.name.split(":")
-        # Try from most to least specific
-        # while event_chunk := event.lower() != "":
-        for i in range(len(chunked), 1, -1):
-            event_chunk = ":".join(chunked[1:i])
-            if event_chunk in self.listeners:
-                await self.listeners[event_chunk].fire(event.lower())
-                # for listener in self.listeners[event_chunk]:
-                #     await listener(event.lower())
-                # print(f"LISTENER PRODUCED: {res}")
-                # res = await asyncio.gather(*[listener(event.lower()) for listener in self.listeners[event_chunk]])
-                # print(f"GATHER RESULTS: {res}")
-                # await self.listeners[event.name](event)
-                break
-
-    def __call__(self, event: Event) -> ty.Awaitable:
-        return self.dispatch(event=event)
-
-    def __repr__(self):
-        return f"EventRouter(name={self.name}, parent={self.parent})"
+   async def _dispatch(self, event: Event) -> None:
+      await aio.gather(*[muxer.fire(event) for listen_name, muxer in self.muxers.items() if event.name.startswith(listen_name)])

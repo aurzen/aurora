@@ -1,23 +1,40 @@
-import asyncio
+import asyncio as aio
+import functools as fnt
 import typing as ty
 
 
 def int_to_ordinal(n: int):
-    return "%d%s" % (n, "tsnrhtdd"[(n // 10 % 10 != 1) * (n % 10 < 4) * n % 10::4])
+   return "%d%s" % (n, "tsnrhtdd"[(n // 10 % 10 != 1) * (n % 10 < 4) * n % 10::4])
+
+
+class AutoRepr:
+   def __repr__(self):
+      return f'<{self.__class__.__name__} {vars(self)!r}>'
 
 
 def delay(coro: ty.Coroutine, seconds: float = 0):
-    async def __delay_coro():
-        await asyncio.sleep(seconds)
-        await coro
+   async def __delay_coro():
+      await aio.sleep(seconds)
+      await coro
 
-    return __delay_coro()
+   return __delay_coro()
+
+
+def coroify(func):
+   if aio.iscoroutinefunction(func):
+      return func
+
+   @fnt.wraps(func)
+   async def __async_wrapper(*args, **kwargs):
+      return func(*args, **kwargs)
+
+   return __async_wrapper
 
 
 class Singleton(type):
-    _instances = {}
+   _instances = {}
 
-    def __call__(cls, *args, **kwargs):
-        if cls not in cls._instances:
-            cls._instances[cls] = super(Singleton, cls).__call__(*args, **kwargs)
-        return cls._instances[cls]
+   def __call__(cls, *args, **kwargs):
+      if cls not in cls._instances:
+         cls._instances[cls] = super(Singleton, cls).__call__(*args, **kwargs)
+      return cls._instances[cls]
