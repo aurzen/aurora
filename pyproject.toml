@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "aurcore"
-version = "1.0.2"
+version = "1.0.3"
 description = "Aurcore!"
 authors= ["Zenith <z@zenith.dev>"]
 

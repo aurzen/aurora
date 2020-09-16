@@ -4,6 +4,7 @@ import asyncio as aio
 import dataclasses as dtc
 import functools as fnt
 import itertools as itt
+import collections as clc
 import typing as ty
 
 import util
@@ -92,7 +93,7 @@ class EventMuxer(util.AutoRepr):
 class EventRouterHost(util.AutoRepr):
    def __init__(self, name: ty.Optional[str] = "Unnamed"):
       self.name = name
-      self.routers: ty.Dict[str, EventRouter] = {}
+      self.routers: ty.Dict[str, ty.List[EventRouter]] = clc.defaultdict(list)
 
    def __str__(self):
       return f"EventRouterHost {self.name} | Routers: {self.routers}"
@@ -100,18 +101,17 @@ class EventRouterHost(util.AutoRepr):
    def register(self, router: EventRouter) -> None:
       if router.name in self.routers:
          raise RuntimeError(f"[{self}] already has an event router named {router.name}")
-      self.routers[router.name] = router
+      self.routers[router.name].append(router)
 
    def deregister(self, router: EventRouter) -> None:
-      if router.name in self.routers:
-         del self.routers[router.name]
+      if router in self.routers:
+         self.routers[router.name].remove(router)
       else:
          raise RuntimeError(f"[{self}] attempted to deregister an unregistered router {router}")
 
    # noinspection PyProtectedMember
    async def submit(self, event: Event):
-      await aio.gather(*[router._dispatch(event) for router in self.routers.values()])
-
+      await aio.gather(*[router._dispatch(event) for router_group in self.routers.values() for router in router_group])
 
 
 class EventRouter(util.AutoRepr):
