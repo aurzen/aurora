@@ -1,12 +1,11 @@
 [tool.poetry]
 name = "aurcore"
-version = "1.0.1"
+version = "1.0.2"
 description = "Aurcore!"
 authors= ["Zenith <z@zenith.dev>"]
 
 [tool.poetry.dependencies]
 python = ">3.8"
-loguru = "^0.5.2"
 
 
 [tool.poetry.dev-dependencies]
@@ -15,3 +14,4 @@ pytest-asyncio = "*"
 pytest-repeat = "*"
 #pytest-catchlog = "^1.2.2"
 pytest-lazy-fixture = "^0.6.3"
+loguru = "^0.5.2"

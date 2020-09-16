@@ -102,9 +102,16 @@ class EventRouterHost(util.AutoRepr):
          raise RuntimeError(f"[{self}] already has an event router named {router.name}")
       self.routers[router.name] = router
 
+   def deregister(self, router: EventRouter) -> None:
+      if router.name in self.routers:
+         del self.routers[router.name]
+      else:
+         raise RuntimeError(f"[{self}] attempted to deregister an unregistered router {router}")
+
    # noinspection PyProtectedMember
    async def submit(self, event: Event):
       await aio.gather(*[router._dispatch(event) for router in self.routers.values()])
+
 
 
 class EventRouter(util.AutoRepr):
@@ -148,3 +155,6 @@ class EventRouter(util.AutoRepr):
 
    async def _dispatch(self, event: Event) -> None:
       await aio.gather(*[muxer.fire(event) for listen_name, muxer in self.muxers.items() if event.name.startswith(listen_name)])
+
+   def detach(self):
+      self.host.deregister(self)
