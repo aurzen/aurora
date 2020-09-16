@@ -19,6 +19,19 @@ def delay(coro: ty.Coroutine, seconds: float = 0):
 
    return __delay_coro()
 
+def aiterify(obj: ty.Union[ty.Coroutine, ty.AsyncIterable]):
+   if aio.iscoroutine(obj) or aio.isfuture(obj):
+      class AiterCoro:
+         def __aiter__(self):
+            async def gen():
+               yield await obj
+
+            return gen()
+
+      return AiterCoro()
+   else:
+      return obj
+
 
 def coroify(func):
    if aio.iscoroutinefunction(func):
