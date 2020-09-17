@@ -37,8 +37,8 @@ async def test_detatches(event_loop, host):
          await child.submit(aurcore.Event(":clock tick", i))
 
    recieved = 0
-
-   @child.listen_for(":clock tick", decompose=True)
+   @child.listen_for(":clock tick")
+   @aurcore.Eventful.decompose
    def x(data):
       nonlocal recieved
       if recieved > 2:

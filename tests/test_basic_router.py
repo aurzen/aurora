@@ -31,7 +31,8 @@ async def basic_test(listen_str, event_name, host, submit_from="child", should_c
 
    child = aurcore.EventRouter(name="child", host=host)
 
-   @child.listen_for(listen_str, decompose=True)
+   @child.listen_for(listen_str)
+   @aurcore.Eventful.decompose
    def x(data) -> int:
       nonlocal message
       message = data

@@ -75,14 +75,15 @@ class Eventful(util.AutoRepr):
          if should_delete is None:
             return True
          raise RuntimeError(f"{self.f} returned something other than [True, None]")
+
       return should_retain(event)
 
    @staticmethod
-   def decompose(func: ty.Callable[[...], ty.Awaitable[None]]) -> ty.Callable[[...], ty.Awaitable[None]]:
-      @fnt.wraps(func)
+   def decompose(func: ty.Callable[..., ty.Union[None, ty.Awaitable[None]]]) -> ty.Callable[[Event], ty.Awaitable[None]]:
+      func_ = util.coroify(func)
+      @fnt.wraps(func_)
       async def __decompose_wrapper(event: Event):
-         print(event)
-         await func(*event.args, **event.kwargs)
+         await func_(*event.args, **event.kwargs)
 
       return __decompose_wrapper
 
@@ -152,16 +153,13 @@ class EventRouter(util.AutoRepr):
       listener = Eventful(muxer=muxer, eventable=listener)
       muxer.register(listener)
 
-   def listen_for(self, event_name: str, decompose=False):
+   def listen_for(self, event_name: str):
       event_name = Event.hoist_name(event_name.lower(), self)
 
       def listen_deco(func: Eventful.EventableFunc):
-         func_: Eventful.EventableFunc = util.coroify(func)
-         if decompose:
-            self._register_listener(event_name, Eventful.decompose(func_))
-         else:
-            self._register_listener(event_name, func_)
-         return func
+         func_ = util.coroify(func)
+         self._register_listener(event_name, func_)
+         return func_
 
       return listen_deco
 

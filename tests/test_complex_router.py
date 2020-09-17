@@ -49,12 +49,14 @@ async def test_two_router_test_from_host(
 
    data_ = dat()
 
-   @child_1.listen_for(listen_str_1, decompose=True)
+   @child_1.listen_for(listen_str_1)
+   @aurcore.Eventful.decompose
    def _(data):
       nonlocal res_1
       res_1 = data
 
-   @child_2.listen_for(listen_str_2, decompose=True)
+   @child_2.listen_for(listen_str_2)
+   @aurcore.Eventful.decompose
    def _(data):
       nonlocal res_2
       res_2 = data

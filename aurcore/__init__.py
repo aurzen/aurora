@@ -1,7 +1,7 @@
 import asyncio
 import contextlib
 
-from .event import Event, EventRouter, EventRouterHost
+from .event import Event, EventRouter, EventRouterHost, Eventful
 from .util import int_to_ordinal
 
 
