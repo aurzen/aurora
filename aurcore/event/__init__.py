@@ -68,19 +68,20 @@ class Eventful(util.AutoRepr):
 
    def __call__(self, event: Event) -> ty.Awaitable[ty.Optional[bool]]:
       # Listeners return True to delete themselves, anything else (None) to
-      async def should_retain():
-         should_delete = await self.f(event)
+      async def should_retain(event_: Event):
+         should_delete = await self.f(event_)
          if should_delete is True:
             return False
          if should_delete is None:
             return True
          raise RuntimeError(f"{self.f} returned something other than [True, None]")
-      return should_retain()
+      return should_retain(event)
 
    @staticmethod
    def decompose(func: ty.Callable[[...], ty.Awaitable[None]]) -> ty.Callable[[...], ty.Awaitable[None]]:
       @fnt.wraps(func)
       async def __decompose_wrapper(event: Event):
+         print(event)
          await func(*event.args, **event.kwargs)
 
       return __decompose_wrapper
