@@ -1,7 +1,7 @@
 import asyncio
 import contextlib
 
-from .event import Event, EventRouter, EventRouterHost, Eventful
+from .event import Event, EventRouter, EventRouterHost
 from .util import int_to_ordinal
 
 
@@ -22,6 +22,5 @@ def aiorun(startup, cleanup):
          loop.run_until_complete(loop.shutdown_asyncgens())
       finally:
          loop.close()
-
 
 __all__ = ["Event", "EventRouterHost", "EventRouter", "int_to_ordinal"]
