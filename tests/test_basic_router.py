@@ -33,7 +33,7 @@ async def basic_test(listen_str, event_name, host, submit_from="child", should_c
 
    @child.listen_for(listen_str)
    @aurcore.Eventful.decompose
-   def x(data) -> int:
+   def x(data) -> None:
       nonlocal message
       message = data
 

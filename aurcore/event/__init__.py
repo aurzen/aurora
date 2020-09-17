@@ -81,6 +81,7 @@ class Eventful(util.AutoRepr):
    @staticmethod
    def decompose(func: ty.Callable[..., ty.Union[None, ty.Awaitable[None]]]) -> ty.Callable[[Event], ty.Awaitable[None]]:
       func_ = util.coroify(func)
+
       @fnt.wraps(func_)
       async def __decompose_wrapper(event: Event):
          await func_(*event.args, **event.kwargs)
@@ -173,7 +174,10 @@ class EventRouter(util.AutoRepr):
       await self.host.submit(event)
 
    async def _dispatch(self, event: Event) -> None:
-      await aio.gather(*[muxer.fire(event) for listen_name, muxer in self.muxers.items() if event.name.startswith(listen_name)])
+      await aio.gather(*[
+         muxer.fire(event) for listen_name, muxer in self.muxers.items()
+         if (listen_name.endswith(":") and event.name.startswith(listen_name)) or event.name == listen_name
+      ])
 
    def detach(self):
       self.host.deregister(self)
