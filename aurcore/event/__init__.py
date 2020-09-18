@@ -110,7 +110,7 @@ class EventMuxer(util.AutoRepr):
       print(ev)
       # async with self.__lock:
       for eventful in self.eventfuls:
-         aio.create_task(eventful(ev)).add_done_callback(fnt.partial(self.eventful_fut_handler, self, eventful))
+         aio.create_task(eventful(ev)).add_done_callback(fnt.partial(self.eventful_fut_handler, eventful))
       #    results: ty.List[ty.Union[bool, BaseException]] = await aio.gather(
       #       *[eventful(ev) for eventful in self.eventfuls],
       #       return_exceptions=True)
