@@ -85,7 +85,6 @@ class Eventful(util.AutoRepr):
 
       @fnt.wraps(func_)
       async def __decompose_wrapper(event: Event):
-         print("Decompose firing")
          return await func_(*event.args, **event.kwargs)
 
       return __decompose_wrapper
@@ -99,11 +98,10 @@ class EventMuxer(util.AutoRepr):
       # self.__lock = aio.Lock(
 
    def eventful_fut_handler(self, eventful: Eventful, fut: aio.Future):
-      print("Eventual fut happened!")
       if fut.result() == False:
          self.eventfuls.remove(eventful)
       if fut.exception():
-         raise Exception
+         raise fut.exception()
 
    async def fire(self, ev: Event) -> None:
       # print("Firing!")
@@ -147,7 +145,6 @@ class EventRouterHost(util.AutoRepr):
 
    # noinspection PyProtectedMember
    async def submit(self, event: Event):
-      print(f"submitting {event}")
       await aio.gather(*[router._dispatch(event) for router_group in self.routers.values() for router in router_group])
 
 
@@ -188,12 +185,6 @@ class EventRouter(util.AutoRepr):
       await self.host.submit(event)
 
    async def _dispatch(self, event: Event) -> None:
-      print("Dispatching...")
-      print(event.name)
-      print([
-         (listen_name) for listen_name, muxer in self.muxers.items()
-
-      ])
       await aio.gather(*[
          muxer.fire(event) for listen_name, muxer in self.muxers.items()
          if (listen_name.endswith(":") and event.name.startswith(listen_name[:-1])) or event.name == listen_name
