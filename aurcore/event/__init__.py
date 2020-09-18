@@ -121,7 +121,7 @@ class EventMuxer(util.AutoRepr):
       self.eventfuls.add(eventful)
 
    def __str__(self):
-      return f"EventMuxer {self.name} | Router: {self.router} | Eventfuls: {self.eventfuls}"
+      return f"EventMuxer {self.name}:\nRouter: {self.router.name}\nEventfuls: {[evf.f for evf in self.eventfuls]}]\n"
 
 
 class EventRouterHost(util.AutoRepr):
@@ -130,7 +130,7 @@ class EventRouterHost(util.AutoRepr):
       self.routers: ty.Dict[str, ty.List[EventRouter]] = clc.defaultdict(list)
 
    def __str__(self):
-      return f"EventRouterHost {self.name} | Routers: {self.routers}"
+      return f"EventRouterHost {self.name} | Routers: {[r for r in self.routers]}"
 
    def register(self, router: EventRouter) -> None:
       if router.name in self.routers:
@@ -146,6 +146,7 @@ class EventRouterHost(util.AutoRepr):
    # noinspection PyProtectedMember
    async def submit(self, event: Event):
       await aio.gather(*[router._dispatch(event) for router_group in self.routers.values() for router in router_group])
+
 
 
 class EventRouter(util.AutoRepr):
@@ -194,4 +195,4 @@ class EventRouter(util.AutoRepr):
       self.host.deregister(self)
 
    def __str__(self):
-      return f"[Muxers: <{self.muxers}>]"
+      return f"[Router: {self.name} |  <{self.muxers}>]"
