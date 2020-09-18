@@ -106,8 +106,8 @@ class EventMuxer(util.AutoRepr):
          raise Exception
 
    async def fire(self, ev: Event) -> None:
-      print("Firing!")
-      print(ev)
+      # print("Firing!")
+      # print(ev)
       # async with self.__lock:
       for eventful in self.eventfuls:
          aio.create_task(eventful(ev)).add_done_callback(fnt.partial(self.eventful_fut_handler, eventful))
