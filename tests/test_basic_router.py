@@ -43,7 +43,7 @@ async def basic_test(listen_str, event_name, host, submit_from="child", should_c
       await child.submit(aurcore.Event(event_name, data=data_))
    else:
       await host.submit(aurcore.Event(event_name, data=data_))
-   await asyncio.sleep(0.25)
+   await asyncio.sleep(0.1)
    assert not ((data_ == message) ^ should_catch)
 
 
@@ -66,12 +66,12 @@ async def test_child_catch_specific_not(event_loop, host):
 
 @pytest.mark.asyncio
 async def test_child_catch_prefix(event_loop, host):
-   await basic_test(listen_str="chil", event_name="child:test", host=host)
+   await basic_test(listen_str="chil:", event_name="child:test", host=host)
 
 
 @pytest.mark.asyncio
 async def test_child_catch_all(event_loop, host):
-   await basic_test(listen_str="", event_name="child:test", host=host)
+   await basic_test(listen_str=":", event_name="child:test", host=host)
 
 
 @pytest.mark.asyncio
@@ -93,12 +93,12 @@ async def test_parent_catch_specific(event_loop, host):
 
 @pytest.mark.asyncio
 async def test_parent_catch_prefix(event_loop, host):
-   await basic_test(listen_str="chil", event_name="child:test", host=host, submit_from="parent")
+   await basic_test(listen_str="chil:", event_name="child:test", host=host, submit_from="parent")
 
 
 @pytest.mark.asyncio
 async def test_parent_catch_all(event_loop, host):
-   await basic_test(listen_str="", event_name="child:test", host=host, submit_from="parent")
+   await basic_test(listen_str=":", event_name="child:test", host=host, submit_from="parent")
 
 #
 # @pytest.mark.asyncio

@@ -5,6 +5,7 @@ import dataclasses as dtc
 import functools as fnt
 import itertools as itt
 import collections as clc
+
 import typing as ty
 import time
 from aurcore import util
@@ -84,6 +85,7 @@ class Eventful(util.AutoRepr):
 
       @fnt.wraps(func_)
       async def __decompose_wrapper(event: Event):
+         print("Decompose firing")
          return await func_(*event.args, **event.kwargs)
 
       return __decompose_wrapper
@@ -93,23 +95,32 @@ class EventMuxer(util.AutoRepr):
    def __init__(self, name: str, router: EventRouter):
       self.name = name
       self.router = router
-      self.eventfuls: ty.List[Eventful] = []
-      self.__lock = aio.Lock()
+      self.eventfuls: ty.Set[Eventful] = set()
+      # self.__lock = aio.Lock(
+
+   def eventful_fut_handler(self, eventful: Eventful, fut: aio.Future):
+      print("Eventual fut happened!")
+      if fut.result() == False:
+         self.eventfuls.remove(eventful)
+      if fut.exception():
+         raise Exception
 
    async def fire(self, ev: Event) -> None:
-      print("Starting Fire")
-      async with self.__lock:
-         print("Done waiting for lock")
-         results: ty.List[ty.Union[bool, BaseException]] = await aio.gather(
-            *[eventful(ev) for eventful in self.eventfuls],
-            return_exceptions=True)
-         self.eventfuls = list(itt.compress(self.eventfuls, results))  # Exceptions are truthy
-      for result in results:
-         if isinstance(result, Exception):
-            raise result
+      print("Firing!")
+      print(ev)
+      # async with self.__lock:
+      for eventful in self.eventfuls:
+         aio.create_task(eventful(ev)).add_done_callback(fnt.partial(self.eventful_fut_handler, self, eventful))
+      #    results: ty.List[ty.Union[bool, BaseException]] = await aio.gather(
+      #       *[eventful(ev) for eventful in self.eventfuls],
+      #       return_exceptions=True)
+      #    self.eventfuls = list(itt.compress(self.eventfuls, results))  # Exceptions are truthy
+      # for result in results:
+      #    if isinstance(result, Exception):
+      #       raise result
 
    def register(self, eventful: Eventful):
-      self.eventfuls.append(eventful)
+      self.eventfuls.add(eventful)
 
    def __str__(self):
       return f"EventMuxer {self.name} | Router: {self.router} | Eventfuls: {self.eventfuls}"
@@ -136,6 +147,7 @@ class EventRouterHost(util.AutoRepr):
 
    # noinspection PyProtectedMember
    async def submit(self, event: Event):
+      print(f"submitting {event}")
       await aio.gather(*[router._dispatch(event) for router_group in self.routers.values() for router in router_group])
 
 
@@ -176,9 +188,15 @@ class EventRouter(util.AutoRepr):
       await self.host.submit(event)
 
    async def _dispatch(self, event: Event) -> None:
+      print("Dispatching...")
+      print(event.name)
+      print([
+         (listen_name) for listen_name, muxer in self.muxers.items()
+
+      ])
       await aio.gather(*[
          muxer.fire(event) for listen_name, muxer in self.muxers.items()
-         if (listen_name.endswith(":") and event.name.startswith(listen_name)) or event.name == listen_name
+         if (listen_name.endswith(":") and event.name.startswith(listen_name[:-1])) or event.name == listen_name
       ])
 
    def detach(self):

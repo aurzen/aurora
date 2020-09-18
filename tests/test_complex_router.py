@@ -22,10 +22,8 @@ def dat():
    ("test", "test", "test", ""),  # Specific
    ("test", "test", "honk", "1"),  # Specific don't match fails
    ("test", "honk", "test", "2"),  # ^
-   ("test~", "test", "test", ""),  #
-   ("test", "t", "te", ""),  #
-   ("test", "", "", ""),
-   ("test", "", "", ""),
+   ("test~", "test:", "test:", ""),  #
+   ("test", "t:", "te:", ""),  #
    ("test", "test", "test~", "1"),
    ("test", "test~", "test", "2"),
 
