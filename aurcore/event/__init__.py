@@ -97,7 +97,9 @@ class EventMuxer(util.AutoRepr):
       self.__lock = aio.Lock()
 
    async def fire(self, ev: Event) -> None:
+      print("Starting Fire")
       async with self.__lock:
+         print("Done waiting for lock")
          results: ty.List[ty.Union[bool, BaseException]] = await aio.gather(
             *[eventful(ev) for eventful in self.eventfuls],
             return_exceptions=True)
