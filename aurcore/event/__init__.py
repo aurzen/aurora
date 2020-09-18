@@ -84,7 +84,7 @@ class Eventful(util.AutoRepr):
 
       @fnt.wraps(func_)
       async def __decompose_wrapper(event: Event):
-         await func_(*event.args, **event.kwargs)
+         return await func_(*event.args, **event.kwargs)
 
       return __decompose_wrapper
 
