@@ -121,7 +121,7 @@ class EventMuxer(util.AutoRepr):
       self.eventfuls.add(eventful)
 
    def __str__(self):
-      return f"EventMuxer {self.name}:\nRouter: {self.router.name}\nEventfuls: {[evf.f for evf in self.eventfuls]}]\n"
+      return f"EventMuxer {self.name}:\nEventfuls: {[evf.f for evf in self.eventfuls]}]\n"
 
 
 class EventRouterHost(util.AutoRepr):
