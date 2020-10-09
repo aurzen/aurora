@@ -57,7 +57,7 @@ class EventWaiter:
          raise GeneratorExit()
 
 
-class Eventful(util.AutoRepr):
+class Eventful:
    EventableFunc: ty.TypeAlias = ty.Callable[[Event], ty.Awaitable[ty.Optional[bool]]]
    f: EventableFunc
 
@@ -90,7 +90,7 @@ class Eventful(util.AutoRepr):
       return __decompose_wrapper
 
 
-class EventMuxer(util.AutoRepr):
+class EventMuxer:
    def __init__(self, name: str, router: EventRouter):
       self.name = name
       self.router = router
@@ -120,14 +120,19 @@ class EventMuxer(util.AutoRepr):
    def register(self, eventful: Eventful):
       self.eventfuls.add(eventful)
 
+   def __repr__(self):
+      return f"EventMuxer(router={self.router.name}, eventfuls={[ev.f.__name__ for ev in self.eventfuls]})"
+
    def __str__(self):
       return f"EventMuxer {self.name}:\n{len(self.eventfuls)} eventfuls"
 
 
-class EventRouterHost(util.AutoRepr):
+class EventRouterHost:
    def __init__(self, name: str = "Unnamed"):
       self.name = name.lower()
       self.routers: ty.Dict[str, ty.List[EventRouter]] = clc.defaultdict(list)
+   def __repr__(self):
+      return f"EventRouterHost(name={self.name}, routers={[router for router in self.routers]}"
 
    def __str__(self):
       return f"EventRouterHost {self.name} | Routers: {[r for r in self.routers]}"
@@ -196,3 +201,6 @@ class EventRouter(util.AutoRepr):
 
    def __str__(self):
       return f"[Router: {self.name} |  <{self.muxers}>]"
+
+   def __repr__(self):
+      return f"Router(name={self.name}, muxers={[m for m in self.muxers]})"
