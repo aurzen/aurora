@@ -133,7 +133,7 @@ class EventRouterHost:
       self.routers: ty.Dict[str, ty.List[EventRouter]] = clc.defaultdict(list)
 
    def __repr__(self):
-      router_block = [f"\t{router}\n" for router in self.routers.values()]
+      router_block = ["\t" + f"{router}" + "\n" for router in self.routers.values()]
       return f"EventRouterHost(name={self.name}, routers={router_block})"
 
    # def __str__(self):
