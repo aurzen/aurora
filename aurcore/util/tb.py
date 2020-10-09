@@ -10,7 +10,7 @@ def current_stack(skip=0):
     try: 1/0
     except ZeroDivisionError:
         f = sys.exc_info()[2].tb_frame
-    for i in xrange(skip + 2):
+    for i in range(skip + 2):
         f = f.f_back
     lst = []
     while f is not None:
