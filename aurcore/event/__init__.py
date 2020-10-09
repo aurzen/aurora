@@ -131,11 +131,13 @@ class EventRouterHost:
    def __init__(self, name: str = "Unnamed"):
       self.name = name.lower()
       self.routers: ty.Dict[str, ty.List[EventRouter]] = clc.defaultdict(list)
-   def __repr__(self):
-      return f"EventRouterHost(name={self.name}, routers={[router for router in self.routers]}"
 
-   def __str__(self):
-      return f"EventRouterHost {self.name} | Routers: {[r for r in self.routers]}"
+   def __repr__(self):
+      router_block = [f"\t{router}\n" for router in self.routers.values()]
+      return f"EventRouterHost(name={self.name}, routers={router_block})"
+
+   # def __str__(self):
+   #    return f"EventRouterHost {self.name} | Routers: {[r for r in self.routers]}"
 
    def register(self, router: EventRouter) -> None:
       if router.name in self.routers:
