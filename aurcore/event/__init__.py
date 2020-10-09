@@ -41,6 +41,7 @@ class EventWaiter:
       if self.done:
          return True
       if self.timeout is not None and (time.perf_counter() - self.start) > self.timeout:
+         print(util.full_exc_info())
          raise aio.TimeoutError()
       if await self.check(event):
          await self.queue.put(event)
