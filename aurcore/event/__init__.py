@@ -41,7 +41,6 @@ class EventWaiter:
       if self.done:
          return True
       if self.timeout is not None and (time.perf_counter() - self.start) > self.timeout:
-         print(util.full_exc_info())
          raise aio.TimeoutError()
       if await self.check(event):
          await self.queue.put(event)
@@ -101,6 +100,8 @@ class EventMuxer:
    def eventful_fut_handler(self, eventful: Eventful, fut: aio.Future):
       if isinstance(fut.exception(), aio.exceptions.TimeoutError) or fut.result() is False:
          self.eventfuls.remove(eventful)
+         fut.result()
+
 
    async def fire(self, ev: Event) -> None:
       # print("Firing!")
