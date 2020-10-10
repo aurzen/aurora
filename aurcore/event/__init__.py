@@ -49,7 +49,14 @@ class EventWaiter:
       try:
          results = 0
          while self.max_results is None or results < self.max_results:
-            yield await self.queue.get()
+            try:
+               v = await aio.wait_for(self.queue.get(), timeout=self.timeout)
+               yield v
+            except aio.TimeoutError:
+               pass
+            if self.timeout is not None and (time.perf_counter() - self.start) > self.timeout:
+               raise aio.TimeoutError()
+
             if self.max_results:
                results += 1
       except GeneratorExit:
@@ -100,8 +107,6 @@ class EventMuxer:
    def eventful_fut_handler(self, eventful: Eventful, fut: aio.Future):
       if isinstance(fut.exception(), aio.exceptions.TimeoutError) or fut.result() is False:
          self.eventfuls.remove(eventful)
-         fut.result()
-
 
    async def fire(self, ev: Event) -> None:
       # print("Firing!")
