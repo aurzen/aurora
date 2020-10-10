@@ -99,10 +99,8 @@ class EventMuxer:
       # self.__lock = aio.Lock(
 
    def eventful_fut_handler(self, eventful: Eventful, fut: aio.Future):
-      if fut.result() == False:
+      if isinstance(fut.exception(), aio.exceptions.TimeoutError) or fut.result() is False:
          self.eventfuls.remove(eventful)
-      if fut.exception():
-         raise fut.exception()
 
    async def fire(self, ev: Event) -> None:
       # print("Firing!")
@@ -154,7 +152,6 @@ class EventRouterHost:
    # noinspection PyProtectedMember
    async def submit(self, event: Event):
       await aio.gather(*[router._dispatch(event) for router_group in self.routers.values() for router in router_group])
-
 
 
 class EventRouter(util.AutoRepr):
