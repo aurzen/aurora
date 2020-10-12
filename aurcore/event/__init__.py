@@ -39,7 +39,7 @@ class EventWaiter:
 
    async def listener(self, event: Event):
       if self.done:
-         return False
+         return True
       if await self.check(event):
          await self.queue.put(event)
 
