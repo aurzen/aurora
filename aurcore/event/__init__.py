@@ -39,9 +39,7 @@ class EventWaiter:
 
    async def listener(self, event: Event):
       if self.done:
-         return True
-      if self.timeout is not None and (time.perf_counter() - self.start) > self.timeout:
-         raise aio.TimeoutError()
+         return False
       if await self.check(event):
          await self.queue.put(event)
 
@@ -53,8 +51,7 @@ class EventWaiter:
                v = await aio.wait_for(self.queue.get(), timeout=self.timeout)
                yield v
             except aio.TimeoutError:
-               pass
-            if self.timeout is not None and (time.perf_counter() - self.start) > self.timeout:
+               self.done = True
                raise aio.TimeoutError()
 
             if self.max_results:
@@ -104,23 +101,14 @@ class EventMuxer:
       self.eventfuls: ty.Set[Eventful] = set()
       # self.__lock = aio.Lock(
 
-   def eventful_fut_handler(self, eventful: Eventful, fut: aio.Future):
-      if isinstance(fut.exception(), aio.exceptions.TimeoutError) or fut.result() is False:
+   def _eventful_cb(self, eventful: Eventful, fut: aio.Future):
+      if fut.result() is False:
          self.eventfuls.remove(eventful)
 
    async def fire(self, ev: Event) -> None:
-      # print("Firing!")
-      # print(ev)
-      # async with self.__lock:
       for eventful in self.eventfuls:
-         aio.create_task(eventful(ev)).add_done_callback(fnt.partial(self.eventful_fut_handler, eventful))
-      #    results: ty.List[ty.Union[bool, BaseException]] = await aio.gather(
-      #       *[eventful(ev) for eventful in self.eventfuls],
-      #       return_exceptions=True)
-      #    self.eventfuls = list(itt.compress(self.eventfuls, results))  # Exceptions are truthy
-      # for result in results:
-      #    if isinstance(result, Exception):
-      #       raise result
+         aio.create_task(eventful(ev)).add_done_callback(fnt.partial(self._eventful_cb, eventful))
+
 
    def register(self, eventful: Eventful):
       self.eventfuls.add(eventful)
