@@ -1,7 +1,9 @@
+from __future__ import annotations
 import asyncio as aio
 import functools as fnt
 import typing as ty
 from .tb import full_exc_info
+
 
 def int_to_ordinal(n: int) -> str:
    return "%d%s" % (n, "tsnrhtdd"[(n // 10 % 10 != 1) * (n % 10 < 4) * n % 10::4])
@@ -41,8 +43,8 @@ class AwaitableAiter:
          res = await self.aiter.__anext__()
          c = await self.aiter.aclose()
          return res
-      return results().__await__()
 
+      return results().__await__()
 
 
 def aiterify(obj: ty.Union[ty.Coroutine, ty.AsyncIterable]):
@@ -71,11 +73,9 @@ def coroify(func):
 
 
 class Singleton(type):
-   _instances = {}
+   _instances: ty.Dict[ty.Type[Singleton], Singleton] = {}
 
    def __call__(cls, *args, **kwargs):
       if cls not in cls._instances:
          cls._instances[cls] = super(Singleton, cls).__call__(*args, **kwargs)
       return cls._instances[cls]
-
-

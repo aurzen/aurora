@@ -2,8 +2,8 @@ import asyncio
 import contextlib
 
 from .event import Event, EventRouter, EventRouterHost, Eventful
-from .util import int_to_ordinal
-
+from . import util
+from . import log
 
 
 def aiorun(startup, cleanup):
@@ -25,4 +25,4 @@ def aiorun(startup, cleanup):
          loop.close()
 
 
-__all__ = ["Event", "Eventful", "EventRouterHost", "EventRouter", "int_to_ordinal"]
+__all__ = ["Event", "Eventful", "EventRouterHost", "EventRouter", "log", "util"]
