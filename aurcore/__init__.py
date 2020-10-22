@@ -5,6 +5,8 @@ from .event import Event, EventRouter, EventRouterHost, Eventful
 from . import util
 from . import log
 
+from loguru import logger
+log.setup()
 
 def aiorun(startup, cleanup):
    loop = asyncio.get_event_loop()
@@ -12,6 +14,7 @@ def aiorun(startup, cleanup):
       loop.create_task(startup)
       loop.run_forever()
    except KeyboardInterrupt:
+      logger.info("KeyboardInterrupt detected. Cleaning up.")
       loop.run_until_complete(cleanup)
       try:
          all_tasks = asyncio.gather(*asyncio.all_tasks(loop), return_exceptions=True)
@@ -20,6 +23,7 @@ def aiorun(startup, cleanup):
             loop.run_until_complete(all_tasks)
          loop.run_until_complete(loop.shutdown_asyncgens())
       finally:
+         logger.info("Cleaned up! Shutting down.")
          loop.close()
 
 
