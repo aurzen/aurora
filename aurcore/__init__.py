@@ -12,8 +12,6 @@ def aiorun(startup, cleanup):
       loop.create_task(startup)
       loop.run_forever()
    except KeyboardInterrupt:
-      pass
-   finally:
       loop.run_until_complete(cleanup)
       try:
          all_tasks = asyncio.gather(*asyncio.all_tasks(loop), return_exceptions=True)
