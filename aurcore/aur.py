@@ -8,18 +8,19 @@ from . import log
 from loguru import logger
 import typing as ty
 
+
 class AurCore(metaclass=ABCMeta):
    log.setup()
 
    def __init__(self, name: str):
       self.router = EventRouterHost(name)
 
-   async def startup(self, *args, **kwargs) -> None: ...
+   async def startup(self, *args: ty.Any, **kwargs: ty.Any) -> None: ...
 
-   async def shutdown(self, *args, **kwargs) -> None: ...
+   async def shutdown(self, *args: ty.Any, **kwargs: ty.Any) -> None: ...
 
 
-def aiorun(startup: ty.Callable[..., ty.Awaitable[None]], cleanup:  ty.Callable[..., ty.Awaitable[None]]) -> None:
+def aiorun(startup: ty.Callable[..., ty.Awaitable[None]], cleanup: ty.Callable[..., ty.Awaitable[None]]) -> None:
    loop = asyncio.get_event_loop()
    try:
       loop.create_task(startup())
