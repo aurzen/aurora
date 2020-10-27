@@ -6,29 +6,29 @@ from . import util
 from . import log
 
 from loguru import logger
-
-
+import typing as ty
 
 class AurCore(metaclass=ABCMeta):
    log.setup()
+
    def __init__(self, name: str):
       self.router = EventRouterHost(name)
 
-   async def startup(self, *args, **kwargs): ...
+   async def startup(self, *args, **kwargs) -> None: ...
 
-   async def shutdown(self, *args, **kwargs): ...
+   async def shutdown(self, *args, **kwargs) -> None: ...
 
 
-def aiorun(startup, cleanup):
+def aiorun(startup: ty.Callable[..., ty.Awaitable[None]], cleanup:  ty.Callable[..., ty.Awaitable[None]]) -> None:
    loop = asyncio.get_event_loop()
    try:
-      loop.create_task(startup)
+      loop.create_task(startup())
       loop.run_forever()
    except KeyboardInterrupt:
 
       with contextlib.suppress(asyncio.CancelledError):
          logger.info("KeyboardInterrupt detected. Cleaning up.")
-         loop.run_until_complete(cleanup)
+         loop.run_until_complete(cleanup())
          all_tasks = asyncio.gather(*asyncio.all_tasks(loop), return_exceptions=True)
          all_tasks.cancel()
          loop.run_until_complete(all_tasks)
