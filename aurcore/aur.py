@@ -7,10 +7,10 @@ from . import log
 
 from loguru import logger
 
-log.setup()
 
 
 class AurCore(metaclass=ABCMeta):
+   log.setup()
    def __init__(self, name: str):
       self.router = EventRouterHost(name)
 
