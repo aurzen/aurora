@@ -1,12 +1,12 @@
 [tool.poetry]
 name = "aurcore"
-version = "1.2.7"
+version = "1.2.8"
 description = "Aurcore!"
 authors= ["Zenith <z@zenith.dev>"]
 include = ["aurcore/py.typed"]
 
 [tool.poetry.dependencies]
-python = "~3.8"
+python = ">=3.9"
 pyyaml = "^5.3.1"
 
 
