@@ -6,7 +6,7 @@ import asyncpg.pool
 import dateparser
 from datetime import datetime, timedelta
 import pytz
-from . import reminder
+from .reminder import Reminder
 import re
 import typing as ty
 
@@ -17,6 +17,8 @@ class Remind(aurflux.FluxCog):
    UNTIL_REG = re.compile("\\.\\.until (.*?),")
    TO_REG = re.compile("\\.\\.to (.*)")
    EVERY_REG = re.compile("..every (.*),")
+
+   EVERY_DOW = re.compile("(first|second|third|fourth) (sun|mon|tue|wed|thu|fri|sat)")
 
    def load(self) -> None:
       @self._commandeer("remindme")
@@ -48,6 +50,7 @@ class Remind(aurflux.FluxCog):
                raise aurflux.CommandError(f"dateparser failed to parse `{at_raw.group(1) if at_raw else in_raw.group(1)}`")
 
             return start
+
          start = get_start(args)
 
          def get_until(text: str) -> ty.Optional[datetime]:
@@ -58,4 +61,33 @@ class Remind(aurflux.FluxCog):
 
          until = get_until(args)
 
-         def get_every(text: str) -> ty.Optional[datetime]:
+         def get_repeat(text:str) -> ty.Tuple[ty.Optional[str], ty.Optional[int]]:
+            def get_every_until(text: str) -> ty.Tuple[ty.Optional[str], ty.Optional[str]]:
+               every_raw = self.EVERY_REG.search(text)
+               if every_raw:
+                  every = every_raw.group(1).strip()
+
+                  if (until_raw := self.UNTIL_REG.search(text)) and not every_raw:
+                     raise aurflux.CommandError(f"Has an `..until` without an `..every`. Until sets the end date of the Every loop")
+
+                  return every, dateparser.parse(until_raw.group(1))
+               return None, None
+
+            every, until = get_every_until(text)
+            if not every:
+               return None, None
+
+            if (every_dow_raw := self.EVERY_DOW.search(every)):
+               base = every
+
+
+
+         every, until = get_every_until(args)
+
+         def get_to(text:str) -> str:
+            to_raw = self.TO_REG.search(text)
+            if not to_raw:
+               raise aurflux.CommandError(f"Missing `..to` clause")
+            return to_raw.group(1)
+
+

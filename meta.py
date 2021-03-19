@@ -14,7 +14,7 @@ import pickle
 from loguru import logger
 from aurflux.types_ import GuildCommandCtx
 
-aur.lo   g.setup()
+aur.log.setup()
 
 if ty.TYPE_CHECKING:
    import datetime
