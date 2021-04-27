@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "aurcore"
-version = "1.2.10"
+version = "1.2.11"
 description = "Aurcore!"
 authors= ["Zenith <z@zenith.dev>"]
 include = ["aurcore/py.typed"]
