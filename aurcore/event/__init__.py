@@ -138,7 +138,7 @@ class EventRouterHost:
       self.routers[router.name].append(router)
 
    def deregister(self, router: EventRouter) -> None:
-      if router in self.routers:
+      if router.name in self.routers:
          self.routers[router.name].remove(router)
       else:
          raise RuntimeError(f"[{self}] attempted to deregister an unregistered router {router}")
