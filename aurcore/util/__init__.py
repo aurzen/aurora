@@ -3,7 +3,7 @@ import asyncio as aio
 import functools as fnt
 import typing as ty
 from .tb import full_exc_info
-
+from . import flattener
 
 def int_to_ordinal(n: int) -> str:
    return "%d%s" % (n, "tsnrhtdd"[(n // 10 % 10 != 1) * (n % 10 < 4) * n % 10::4])
