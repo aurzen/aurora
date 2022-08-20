@@ -1,0 +1,3 @@
+ADMIN_ID = 129706966460137472
+AURORA = "NTk2NDU1MzI1NzQyMzk5NTE5.XR5yTw.4Ad9y1SdGGKY1jEFO7zyC0QbmOI"
+PSQL_STRING = "postgres://aurora@cephalon.ze.ax:10001/reminder"
